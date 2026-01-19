@@ -123,13 +123,15 @@ export function ProfileSetupModal({
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.errors?.[0] || 'Failed to save profile');
+        const errorMsg = data.errors?.[0] || 'Failed to save profile';
+        setUsernameError(errorMsg);
+        return;
       }
 
       onComplete();
     } catch (error) {
       console.error("Failed to save profile:", error);
-      setUsernameError(error instanceof Error ? error.message : "Failed to save. Username may already be taken.");
+      setUsernameError("Failed to save profile. Please try again.");
     } finally {
       setIsSaving(false);
     }

@@ -38,7 +38,7 @@ class ShadowWalletController {
 
     /**
      * GET /api/wallets/is-premium/:walletAddress
-     * Vérifie si une adresse wallet est premium
+     * Vérifie si une adresse wallet est premium et retourne sa photo de profil
      */
     public function isPremium() {
         header('Content-Type: application/json');
@@ -58,9 +58,12 @@ class ShadowWalletController {
             exit;
         }
 
-        $isPremium = $this->shadowWalletModel->isPremium($walletAddress);
+        $result = $this->shadowWalletModel->isPremium($walletAddress);
 
-        echo json_encode(['is_premium' => $isPremium]);
+        echo json_encode([
+            'is_premium' => $result['is_premium'],
+            'profile_picture' => $result['profile_picture']
+        ]);
         exit;
     }
 

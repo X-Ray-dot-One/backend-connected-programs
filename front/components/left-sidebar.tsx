@@ -30,6 +30,9 @@ const navItems = [
 interface SolanaWallet {
   isPhantom?: boolean;
   isSolflare?: boolean;
+  isBackpack?: boolean;
+  isCoinbaseWallet?: boolean;
+  isTrust?: boolean;
   publicKey?: { toString(): string };
   connect(): Promise<{ publicKey: { toString(): string } }>;
   disconnect(): Promise<void>;
@@ -42,8 +45,45 @@ declare global {
     solana?: SolanaWallet;
     solflare?: SolanaWallet;
     phantom?: { solana?: SolanaWallet };
+    backpack?: SolanaWallet;
+    coinbaseSolana?: SolanaWallet;
+    trustwallet?: { solana?: SolanaWallet };
   }
 }
+
+// Known wallets configuration
+const KNOWN_WALLETS = [
+  {
+    id: "phantom",
+    name: "Phantom",
+    icon: "/phantom logo.png",
+    downloadUrl: "https://phantom.app/download",
+  },
+  {
+    id: "solflare",
+    name: "Solflare",
+    icon: "https://solflare.com/favicon.ico",
+    downloadUrl: "https://solflare.com/download",
+  },
+  {
+    id: "backpack",
+    name: "Backpack",
+    icon: "https://backpack.app/favicon.ico",
+    downloadUrl: "https://backpack.app/download",
+  },
+  {
+    id: "coinbase",
+    name: "Coinbase Wallet",
+    icon: "https://www.coinbase.com/favicon.ico",
+    downloadUrl: "https://www.coinbase.com/wallet/downloads",
+  },
+  {
+    id: "trust",
+    name: "Trust Wallet",
+    icon: "https://trustwallet.com/favicon.ico",
+    downloadUrl: "https://trustwallet.com/download",
+  },
+] as const;
 
 export function LeftSidebar() {
   const { isShadowMode, toggleMode } = useMode();
@@ -60,8 +100,9 @@ export function LeftSidebar() {
       const wallets: string[] = [];
       if (window.phantom?.solana || window.solana?.isPhantom) wallets.push("phantom");
       if (window.solflare) wallets.push("solflare");
-      // Generic solana provider (could be other wallets)
-      if (window.solana && !window.solana.isPhantom && !window.solflare) wallets.push("other");
+      if (window.backpack) wallets.push("backpack");
+      if (window.coinbaseSolana) wallets.push("coinbase");
+      if (window.trustwallet?.solana) wallets.push("trust");
       setAvailableWallets(wallets);
     };
 
@@ -72,10 +113,20 @@ export function LeftSidebar() {
   }, []);
 
   const getWallet = (type: string): SolanaWallet | null => {
-    if (type === "phantom") return window.phantom?.solana || window.solana || null;
-    if (type === "solflare") return window.solflare || null;
-    if (type === "other") return window.solana || null;
-    return null;
+    switch (type) {
+      case "phantom":
+        return window.phantom?.solana || (window.solana?.isPhantom ? window.solana : null);
+      case "solflare":
+        return window.solflare || null;
+      case "backpack":
+        return window.backpack || null;
+      case "coinbase":
+        return window.coinbaseSolana || null;
+      case "trust":
+        return window.trustwallet?.solana || null;
+      default:
+        return null;
+    }
   };
 
   const connectWallet = async (walletType: string) => {
@@ -110,6 +161,9 @@ export function LeftSidebar() {
         window.phantom?.solana,
         window.solana,
         window.solflare,
+        window.backpack,
+        window.coinbaseSolana,
+        window.trustwallet?.solana,
       ].filter(Boolean);
 
       for (const wallet of wallets) {
@@ -316,51 +370,58 @@ export function LeftSidebar() {
 
             {/* Wallet Selection Menu */}
             {showWalletMenu && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 mx-3 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
-                <div className="p-2 border-b border-border">
-                  <p className="text-xs text-muted-foreground text-center">Select Wallet</p>
+              <div className="absolute bottom-full left-0 right-0 mb-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
+                <div className="px-4 py-3 border-b border-border bg-muted/30">
+                  <p className="text-sm font-medium text-foreground">Connect Wallet</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Select your preferred wallet</p>
                 </div>
-                {availableWallets.length === 0 ? (
-                  <div className="p-3 text-center">
-                    <p className="text-sm text-muted-foreground">No wallet detected</p>
-                    <a
-                      href="https://phantom.app/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Install Phantom
-                    </a>
-                  </div>
-                ) : (
-                  <div className="p-1">
-                    {availableWallets.includes("phantom") && (
+                <div className="p-2 max-h-[280px] overflow-y-auto">
+                  {KNOWN_WALLETS.map((wallet) => {
+                    const isInstalled = availableWallets.includes(wallet.id);
+                    return (
                       <button
-                        onClick={() => connectWallet("phantom")}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors"
+                        key={wallet.id}
+                        onClick={() => {
+                          if (isInstalled) {
+                            connectWallet(wallet.id);
+                          } else {
+                            window.open(wallet.downloadUrl, "_blank");
+                          }
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted/80 transition-colors group"
                       >
-                        <img src="https://phantom.app/img/logo.png" alt="Phantom" className="w-5 h-5" />
-                        <span className="text-sm text-foreground">Phantom</span>
+                        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                          <img
+                            src={wallet.icon}
+                            alt={wallet.name}
+                            className="w-6 h-6 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-foreground">{wallet.name}</p>
+                          {isInstalled ? (
+                            <p className="text-xs text-green-500">Detected</p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
+                              Click to install
+                            </p>
+                          )}
+                        </div>
+                        {isInstalled && (
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                        )}
                       </button>
-                    )}
-                    {availableWallets.includes("solflare") && (
-                      <button
-                        onClick={() => connectWallet("solflare")}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors"
-                      >
-                        <img src="https://solflare.com/favicon.ico" alt="Solflare" className="w-5 h-5" />
-                        <span className="text-sm text-foreground">Solflare</span>
-                      </button>
-                    )}
-                    {availableWallets.includes("other") && (
-                      <button
-                        onClick={() => connectWallet("other")}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-muted transition-colors"
-                      >
-                        <Wallet className="w-5 h-5 text-primary" />
-                        <span className="text-sm text-foreground">Other Wallet</span>
-                      </button>
-                    )}
+                    );
+                  })}
+                </div>
+                {availableWallets.length === 0 && (
+                  <div className="px-4 py-3 border-t border-border bg-amber-500/10">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                      No wallet detected. Install one to continue.
+                    </p>
                   </div>
                 )}
               </div>

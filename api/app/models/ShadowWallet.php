@@ -23,17 +23,21 @@ class ShadowWallet {
     }
 
     /**
-     * Check if a wallet address is premium
+     * Check if a wallet address is premium and get profile picture
+     * Returns array with is_premium (bool) and profile_picture (string|null)
      */
     public function isPremium($walletAddress) {
         $stmt = $this->db->prepare("
-            SELECT is_premium FROM premium_wallets WHERE wallet_address = :wallet_address
+            SELECT is_premium, profile_picture FROM premium_wallets WHERE wallet_address = :wallet_address
         ");
         $stmt->bindParam(':wallet_address', $walletAddress);
         $stmt->execute();
         $result = $stmt->fetch();
 
-        return $result ? (bool)$result['is_premium'] : false;
+        return [
+            'is_premium' => $result ? (bool)$result['is_premium'] : false,
+            'profile_picture' => $result ? $result['profile_picture'] : null
+        ];
     }
 
     /**
@@ -51,6 +55,19 @@ class ShadowWallet {
                 DELETE FROM premium_wallets WHERE wallet_address = :wallet_address
             ");
         }
+        $stmt->bindParam(':wallet_address', $walletAddress);
+
+        return $stmt->execute();
+    }
+
+    /**
+     * Set profile picture for a premium wallet
+     */
+    public function setPremiumProfilePicture($walletAddress, $profilePicture) {
+        $stmt = $this->db->prepare("
+            UPDATE premium_wallets SET profile_picture = :profile_picture WHERE wallet_address = :wallet_address
+        ");
+        $stmt->bindParam(':profile_picture', $profilePicture);
         $stmt->bindParam(':wallet_address', $walletAddress);
 
         return $stmt->execute();

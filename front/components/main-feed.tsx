@@ -11,6 +11,7 @@ import {
   Zap,
   Target,
   ExternalLink,
+  Crown,
 } from "lucide-react";
 import { useMode } from "@/contexts/mode-context";
 import { useAuth } from "@/contexts/auth-context";
@@ -25,6 +26,11 @@ import { extractXUsername, extractXrayUsername } from "@/lib/shadow/targetProfil
 
 // Cache for shadow wallet names to avoid repeated API calls
 const shadowNameCache = new Map<string, string>();
+// Cache for premium status and profile picture
+const premiumCache = new Map<string, { isPremium: boolean; profilePicture: string | null }>();
+// Queue for progressive loading (most recent first)
+let loadingQueue: string[] = [];
+let isProcessingQueue = false;
 
 async function getShadowName(authorPubkey: string): Promise<string> {
   // Check cache first
@@ -41,6 +47,102 @@ async function getShadowName(authorPubkey: string): Promise<string> {
     shadowNameCache.set(authorPubkey, "unknown");
     return "unknown";
   }
+}
+
+async function checkPremiumStatus(authorPubkey: string): Promise<{ isPremium: boolean; profilePicture: string | null }> {
+  // Check cache first
+  if (premiumCache.has(authorPubkey)) {
+    return premiumCache.get(authorPubkey)!;
+  }
+
+  try {
+    const response = await api.isPremiumWallet(authorPubkey);
+    const result = {
+      isPremium: response.is_premium || false,
+      profilePicture: response.profile_picture || null
+    };
+    premiumCache.set(authorPubkey, result);
+    return result;
+  } catch {
+    const defaultResult = { isPremium: false, profilePicture: null };
+    premiumCache.set(authorPubkey, defaultResult);
+    return defaultResult;
+  }
+}
+
+// Event emitter for author info updates
+type AuthorInfoListener = (pubkey: string, name: string, isPremium: boolean, pfp: string | null) => void;
+const authorInfoListeners = new Set<AuthorInfoListener>();
+
+function subscribeToAuthorInfo(listener: AuthorInfoListener) {
+  authorInfoListeners.add(listener);
+  return () => authorInfoListeners.delete(listener);
+}
+
+function notifyAuthorInfoUpdate(pubkey: string, name: string, isPremium: boolean, pfp: string | null) {
+  authorInfoListeners.forEach(listener => listener(pubkey, name, isPremium, pfp));
+}
+
+/**
+ * Process the loading queue progressively (most recent posts first)
+ * Loads author names and premium status one by one with a small delay
+ */
+async function processLoadingQueue() {
+  if (isProcessingQueue || loadingQueue.length === 0) return;
+
+  isProcessingQueue = true;
+
+  while (loadingQueue.length > 0) {
+    const pubkey = loadingQueue.shift()!;
+
+    // Skip if already cached
+    if (shadowNameCache.has(pubkey) && premiumCache.has(pubkey)) {
+      notifyAuthorInfoUpdate(
+        pubkey,
+        shadowNameCache.get(pubkey)!,
+        premiumCache.get(pubkey)!.isPremium,
+        premiumCache.get(pubkey)!.profilePicture
+      );
+      continue;
+    }
+
+    // Fetch name and premium status
+    try {
+      const [name, premiumStatus] = await Promise.all([
+        getShadowName(pubkey),
+        checkPremiumStatus(pubkey)
+      ]);
+
+      notifyAuthorInfoUpdate(pubkey, name, premiumStatus.isPremium, premiumStatus.profilePicture);
+    } catch {
+      notifyAuthorInfoUpdate(pubkey, "unknown", false, null);
+    }
+
+    // Small delay to avoid hammering the API
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+
+  isProcessingQueue = false;
+}
+
+/**
+ * Queue authors for progressive loading (call with posts sorted by timestamp desc)
+ */
+function queueAuthorsForLoading(authorPubkeys: string[]) {
+  // Clear existing queue
+  loadingQueue = [];
+
+  // Add unique authors to queue (maintain order - most recent first)
+  const seen = new Set<string>();
+  for (const pubkey of authorPubkeys) {
+    if (!seen.has(pubkey)) {
+      seen.add(pubkey);
+      loadingQueue.push(pubkey);
+    }
+  }
+
+  // Start processing
+  processLoadingQueue();
 }
 
 interface Post {
@@ -115,11 +217,29 @@ function ShadowPostCard({
   const router = useRouter();
   const targetInfo = getTargetDisplay(post.target);
   const timeAgo = getTimeAgo(post.timestamp);
-  const [authorName, setAuthorName] = useState<string | null>(null);
 
-  // Fetch author name on mount
+  // Initialize from cache if available
+  const [authorName, setAuthorName] = useState<string | null>(
+    shadowNameCache.get(post.author) || null
+  );
+  const [isPremium, setIsPremium] = useState(
+    premiumCache.get(post.author)?.isPremium || false
+  );
+  const [premiumPfp, setPremiumPfp] = useState<string | null>(
+    premiumCache.get(post.author)?.profilePicture || null
+  );
+
+  // Subscribe to author info updates from progressive loader
   useEffect(() => {
-    getShadowName(post.author).then(setAuthorName);
+    const unsubscribe = subscribeToAuthorInfo((pubkey, name, premium, pfp) => {
+      if (pubkey === post.author) {
+        setAuthorName(name);
+        setIsPremium(premium);
+        setPremiumPfp(pfp);
+      }
+    });
+
+    return unsubscribe;
   }, [post.author]);
 
   // Navigate to target profile page with shadow tab open
@@ -143,9 +263,21 @@ function ShadowPostCard({
   return (
     <div className="p-4 border-b border-primary/10 hover:bg-primary/5 transition-colors">
       <div className="flex gap-3">
-        {/* Anonymous avatar */}
-        <div className="w-10 h-10 rounded-full flex-shrink-0 bg-primary/20 flex items-center justify-center ring-2 ring-primary/30">
-          <EyeOff className="w-5 h-5 text-primary" />
+        {/* Avatar - custom pfp for premium, anonymous icon for others */}
+        <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ring-2 overflow-hidden ${
+          isPremium
+            ? "bg-pink-500/20 ring-pink-500/50"
+            : "bg-primary/20 ring-primary/30"
+        }`}>
+          {premiumPfp ? (
+            <img
+              src={getImageUrl(premiumPfp, "")}
+              alt="Premium avatar"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <EyeOff className={`w-5 h-5 ${isPremium ? "text-pink-500" : "text-primary"}`} />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -163,10 +295,21 @@ function ShadowPostCard({
               </span>
             )}
 
-            {/* Shadow identity name */}
-            <span className="font-medium text-primary">
-              {authorName || "..."}
-            </span>
+            {/* Shadow identity name - clickable to go to shadow profile, pink for premium */}
+            {isPremium && <Crown className="w-3.5 h-3.5 text-pink-500" />}
+            {authorName ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/shadow/${encodeURIComponent(authorName)}`);
+                }}
+                className={`font-medium hover:underline ${isPremium ? "text-pink-500" : "text-primary"}`}
+              >
+                {authorName}
+              </button>
+            ) : (
+              <span className={`font-medium ${isPremium ? "text-pink-500" : "text-primary"}`}>...</span>
+            )}
 
             {isOwnPost && (
               <span className="px-1.5 py-0.5 rounded text-xs bg-green-500/20 text-green-500">
@@ -248,11 +391,34 @@ export function MainFeed() {
     setError(null);
     try {
       if (isShadowMode) {
-        // Shadow mode: fetch from blockchain
-        const onChainPosts = activeTab === "for_you"
-          ? await getRecentPosts(50)
-          : await getTop20Posts();
-        setShadowPosts(onChainPosts);
+        // Shadow mode: fetch from blockchain (cached)
+        if (activeTab === "for_you") {
+          const onChainPosts = await getRecentPosts(50);
+          setShadowPosts(onChainPosts);
+          // Queue authors for progressive loading (most recent first)
+          queueAuthorsForLoading(onChainPosts.map(p => p.author));
+        } else {
+          // Premium feed: recent posts from premium wallets only
+          // First show all posts, then filter as premium status loads
+          const onChainPosts = await getRecentPosts(50);
+
+          // Quick filter using cache (show what we know immediately)
+          const knownPremiumPosts = onChainPosts.filter(p =>
+            premiumCache.get(p.author)?.isPremium
+          );
+          setShadowPosts(knownPremiumPosts);
+
+          // Load all premium statuses and update as we go
+          const premiumPosts: TopPost[] = [];
+          for (const post of onChainPosts) {
+            const status = await checkPremiumStatus(post.author);
+            if (status.isPremium) {
+              premiumPosts.push(post);
+              // Update state progressively
+              setShadowPosts([...premiumPosts]);
+            }
+          }
+        }
       } else {
         // Public mode: fetch from API
         try {
@@ -409,11 +575,10 @@ export function MainFeed() {
               <p className="text-sm mt-2">Be the first to post anonymously!</p>
             </div>
           ) : (
-            shadowPosts.map((post, index) => (
+            shadowPosts.map((post) => (
               <ShadowPostCard
                 key={post.pubkey}
                 post={post}
-                rank={activeTab === "following" ? index + 1 : undefined}
                 isOwnPost={shadowWallets.some(w => w.publicKey === post.author)}
               />
             ))

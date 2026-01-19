@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AppLayout } from "@/components/app-layout";
-import { getShadowWalletByName } from "@/lib/api";
+import { getShadowWalletByName, isPremiumWallet } from "@/lib/api";
 import { getShadowProfileStats, type ShadowProfileStats, type TopPostWithRank } from "@/lib/shadow/topPosts";
+import { useShadow } from "@/contexts/shadow-context";
 import {
   ArrowLeft,
   Loader2,
@@ -13,6 +14,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { getImageUrl } from "@/lib/utils";
 
 function formatSol(lamports: bigint): string {
   const sol = Number(lamports) / LAMPORTS_PER_SOL;
@@ -45,20 +47,30 @@ function extractTarget(target: string): { name: string; platform: string } {
 }
 
 // Shadow post card component
-function ShadowPostCard({ post, walletName }: { post: TopPostWithRank; walletName: string }) {
+function ShadowPostCard({ post, walletName, isOwnPost, isPremium, premiumPfp }: { post: TopPostWithRank; walletName: string; isOwnPost: boolean; isPremium: boolean; premiumPfp: string | null }) {
   const target = extractTarget(post.target);
 
   return (
     <div className="p-4 border-b border-primary/10 hover:bg-primary/5 transition-colors">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-          <span className="text-sm font-bold text-primary">
-            {walletName.charAt(0).toUpperCase()}
-          </span>
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
+          isPremium ? "bg-pink-500/20" : "bg-primary/20"
+        }`}>
+          {premiumPfp ? (
+            <img
+              src={getImageUrl(premiumPfp, "")}
+              alt="Premium avatar"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className={`text-sm font-bold ${isPremium ? "text-pink-500" : "text-primary"}`}>
+              {walletName.charAt(0).toUpperCase()}
+            </span>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-primary">{walletName}</span>
+            <span className={`font-medium ${isPremium ? "text-pink-500" : "text-primary"}`}>{walletName}</span>
             <span className="text-muted-foreground text-sm">→</span>
             <span className="text-sm text-foreground">
               @{target.name}
@@ -79,14 +91,17 @@ function ShadowPostCard({ post, walletName }: { post: TopPostWithRank; walletNam
             <span className="text-sm text-muted-foreground">
               Rank #{post.rank}/{post.totalForTarget}
             </span>
-            <a
-              href={`https://explorer.solana.com/address/${post.pubkey}?cluster=devnet`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-primary hover:underline flex items-center gap-1"
-            >
-              View <ExternalLink className="w-3 h-3" />
-            </a>
+            {/* Only show explorer link for own posts */}
+            {isOwnPost && (
+              <a
+                href={`https://explorer.solana.com/address/${post.pubkey}?cluster=devnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                View <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -98,12 +113,18 @@ function ShadowProfileContent() {
   const params = useParams();
   const router = useRouter();
   const name = decodeURIComponent(params.name as string);
+  const { wallets: myWallets } = useShadow();
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [walletPubkey, setWalletPubkey] = useState<string | null>(null);
   const [stats, setStats] = useState<ShadowProfileStats | null>(null);
   const [shadowTab, setShadowTab] = useState<"top" | "posts" | "history">("top");
+  const [isPremium, setIsPremium] = useState(false);
+  const [premiumPfp, setPremiumPfp] = useState<string | null>(null);
+
+  // Check if this is our own wallet
+  const isOwnWallet = walletPubkey ? myWallets.some(w => w.publicKey === walletPubkey) : false;
 
   // Load wallet info by name
   useEffect(() => {
@@ -130,21 +151,26 @@ function ShadowProfileContent() {
     }
   }, [name]);
 
-  // Load stats when we have the pubkey
+  // Load stats and premium status when we have the pubkey
   useEffect(() => {
-    const loadStats = async () => {
+    const loadData = async () => {
       if (!walletPubkey) return;
 
       try {
-        const profileStats = await getShadowProfileStats(walletPubkey);
+        const [profileStats, premiumResponse] = await Promise.all([
+          getShadowProfileStats(walletPubkey),
+          isPremiumWallet(walletPubkey),
+        ]);
         setStats(profileStats);
+        setIsPremium(premiumResponse.is_premium || false);
+        setPremiumPfp(premiumResponse.profile_picture || null);
       } catch (err) {
         console.error("Failed to load stats:", err);
       }
     };
 
     if (walletPubkey) {
-      loadStats();
+      loadData();
     }
   }, [walletPubkey]);
 
@@ -212,14 +238,27 @@ function ShadowProfileContent() {
       {/* Shadow Profile Header */}
       <div className="px-6 py-6 border-b border-border">
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center">
-            <div className="w-16 h-16 rounded-full bg-primary/30 flex items-center justify-center text-2xl font-bold text-primary">
-              {name.charAt(0).toUpperCase()}
-            </div>
+          <div className={`w-20 h-20 rounded-full flex items-center justify-center overflow-hidden ${
+            isPremium ? "bg-pink-500/20" : "bg-primary/20"
+          }`}>
+            {premiumPfp ? (
+              <img
+                src={getImageUrl(premiumPfp, "")}
+                alt="Premium avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold ${
+                isPremium ? "bg-pink-500/30 text-pink-500" : "bg-primary/30 text-primary"
+              }`}>
+                {name.charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-primary">{name}</h1>
-            {walletPubkey && (
+            <h1 className={`text-2xl font-bold ${isPremium ? "text-pink-500" : "text-primary"}`}>{name}</h1>
+            {/* Only show wallet address and explorer link for own wallets */}
+            {walletPubkey && isOwnWallet && (
               <>
                 <p className="text-sm text-muted-foreground font-mono">
                   {walletPubkey.slice(0, 8)}...{walletPubkey.slice(-8)}
@@ -319,7 +358,7 @@ function ShadowProfileContent() {
           </div>
         ) : (
           getFilteredPosts().map((post) => (
-            <ShadowPostCard key={post.pubkey} post={post} walletName={name} />
+            <ShadowPostCard key={post.pubkey} post={post} walletName={name} isOwnPost={isOwnWallet} isPremium={isPremium} premiumPfp={premiumPfp} />
           ))
         )}
       </div>

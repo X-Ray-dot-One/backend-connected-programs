@@ -29,6 +29,7 @@ import {
   ExternalLink,
   Zap,
   Target,
+  Crown,
 } from "lucide-react";
 
 import { getImageUrl, getDefaultAvatar, DEFAULT_BANNER } from "@/lib/utils";
@@ -58,6 +59,8 @@ function renderContentWithMentions(content: string) {
 
 // Cache for shadow wallet names
 const shadowNameCache = new Map<string, string>();
+// Cache for premium status and profile picture
+const premiumCache = new Map<string, { isPremium: boolean; profilePicture: string | null }>();
 
 async function getShadowName(authorPubkey: string): Promise<string> {
   if (shadowNameCache.has(authorPubkey)) {
@@ -71,6 +74,25 @@ async function getShadowName(authorPubkey: string): Promise<string> {
   } catch {
     shadowNameCache.set(authorPubkey, "unknown");
     return "unknown";
+  }
+}
+
+async function checkPremiumStatus(authorPubkey: string): Promise<{ isPremium: boolean; profilePicture: string | null }> {
+  if (premiumCache.has(authorPubkey)) {
+    return premiumCache.get(authorPubkey)!;
+  }
+  try {
+    const response = await api.isPremiumWallet(authorPubkey);
+    const result = {
+      isPremium: response.is_premium || false,
+      profilePicture: response.profile_picture || null
+    };
+    premiumCache.set(authorPubkey, result);
+    return result;
+  } catch {
+    const defaultResult = { isPremium: false, profilePicture: null };
+    premiumCache.set(authorPubkey, defaultResult);
+    return defaultResult;
   }
 }
 
@@ -99,23 +121,41 @@ function extractTargetUsername(target: string): { name: string; platform: string
 // Shadow post card component for posts targeting this user
 function ShadowPostCard({ post, rank, total }: { post: TargetPost; rank: number; total: number }) {
   const [authorName, setAuthorName] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
+  const [premiumPfp, setPremiumPfp] = useState<string | null>(null);
 
   useEffect(() => {
     getShadowName(post.author).then(setAuthorName);
+    checkPremiumStatus(post.author).then((result) => {
+      setIsPremium(result.isPremium);
+      setPremiumPfp(result.profilePicture);
+    });
   }, [post.author]);
 
   return (
     <div className="p-4 border-b border-primary/10 hover:bg-primary/5 transition-colors">
       <div className="flex gap-3">
-        {/* Anonymous avatar */}
-        <div className="w-10 h-10 rounded-full flex-shrink-0 bg-primary/20 flex items-center justify-center ring-2 ring-primary/30">
-          <EyeOff className="w-5 h-5 text-primary" />
+        {/* Avatar - custom pfp for premium, anonymous icon for others */}
+        <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ring-2 overflow-hidden ${
+          isPremium
+            ? "bg-pink-500/20 ring-pink-500/50"
+            : "bg-primary/20 ring-primary/30"
+        }`}>
+          {premiumPfp ? (
+            <img
+              src={getImageUrl(premiumPfp, "")}
+              alt="Premium avatar"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <EyeOff className={`w-5 h-5 ${isPremium ? "text-pink-500" : "text-primary"}`} />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Shadow identity name */}
-            <span className="font-medium text-primary">
+            {/* Shadow identity name - pink for premium */}
+            <span className={`font-medium ${isPremium ? "text-pink-500" : "text-primary"}`}>
               {authorName || "anonymous"}
             </span>
 
@@ -183,6 +223,10 @@ function ProfileContent() {
   const [isLoadingShadowPosts, setIsLoadingShadowPosts] = useState(false);
   const [shadowSortBy, setShadowSortBy] = useState<"boost" | "recent">("boost");
 
+  // Premium status and pfp for selected shadow wallet
+  const [isSelectedWalletPremium, setIsSelectedWalletPremium] = useState(false);
+  const [selectedWalletPremiumPfp, setSelectedWalletPremiumPfp] = useState<string | null>(null);
+
   // Combine auth stats with local posts count
   const stats = { ...authStats, posts: localPostsCount };
 
@@ -243,6 +287,19 @@ function ProfileContent() {
       });
     }
   }, [user]);
+
+  // Check premium status when selected shadow wallet changes
+  useEffect(() => {
+    if (selectedWallet?.publicKey) {
+      checkPremiumStatus(selectedWallet.publicKey).then((result) => {
+        setIsSelectedWalletPremium(result.isPremium);
+        setSelectedWalletPremiumPfp(result.profilePicture);
+      });
+    } else {
+      setIsSelectedWalletPremium(false);
+      setSelectedWalletPremiumPfp(null);
+    }
+  }, [selectedWallet?.publicKey]);
 
   const loadPosts = async () => {
     if (!user?.id) return;
@@ -578,13 +635,33 @@ function ProfileContent() {
             {/* Shadow Profile Header */}
             <div className="px-6 py-6 border-b border-border">
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center">
-                  <div className="w-16 h-16 rounded-full bg-primary/30 flex items-center justify-center text-2xl font-bold text-primary">
-                    {selectedWallet.name.charAt(0).toUpperCase()}
-                  </div>
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center overflow-hidden ${
+                  isSelectedWalletPremium ? "bg-pink-500/20" : "bg-primary/20"
+                }`}>
+                  {selectedWalletPremiumPfp ? (
+                    <img
+                      src={getImageUrl(selectedWalletPremiumPfp, "")}
+                      alt="Premium avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold ${
+                      isSelectedWalletPremium ? "bg-pink-500/30 text-pink-500" : "bg-primary/30 text-primary"
+                    }`}>
+                      {selectedWallet.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1">
-                  <h1 className="text-2xl font-bold text-primary">{selectedWallet.name}</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className={`text-2xl font-bold ${isSelectedWalletPremium ? "text-pink-500" : "text-primary"}`}>{selectedWallet.name}</h1>
+                    {isSelectedWalletPremium && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-pink-500/20 text-pink-500 rounded-full">
+                        <Crown className="w-3 h-3" />
+                        premium
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground font-mono">
                     {selectedWallet.publicKey.slice(0, 8)}...{selectedWallet.publicKey.slice(-8)}
                   </p>
@@ -694,13 +771,23 @@ function ProfileContent() {
                         className="p-4 border-b border-primary/10 hover:bg-primary/5 transition-colors group"
                       >
                         <div className="flex items-start gap-3">
-                          {/* Anonymous avatar with EyeOff */}
-                          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            <EyeOff className="w-5 h-5 text-primary" />
+                          {/* Avatar - custom pfp for premium, anonymous icon for others */}
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
+                            isSelectedWalletPremium ? "bg-pink-500/20" : "bg-primary/20"
+                          }`}>
+                            {selectedWalletPremiumPfp ? (
+                              <img
+                                src={getImageUrl(selectedWalletPremiumPfp, "")}
+                                alt="Premium avatar"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <EyeOff className={`w-5 h-5 ${isSelectedWalletPremium ? "text-pink-500" : "text-primary"}`} />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-primary">{selectedWallet.name}</span>
+                              <span className={`font-medium ${isSelectedWalletPremium ? "text-pink-500" : "text-primary"}`}>{selectedWallet.name}</span>
                               <span className="text-muted-foreground/50">·</span>
                               <span className="text-muted-foreground text-sm">
                                 {getTimeAgo(post.timestamp)}

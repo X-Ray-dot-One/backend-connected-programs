@@ -1,7 +1,7 @@
 "use client";
 
-import { ReactNode, useState, createContext, useContext, useCallback } from "react";
-import { ChevronDown, Check, Plus, User, Loader2 } from "lucide-react";
+import { ReactNode, useState, useEffect, createContext, useContext, useCallback } from "react";
+import { ChevronDown, Check, Plus, User, Loader2, Crown } from "lucide-react";
 import { useMode } from "@/contexts/mode-context";
 import { useAuth } from "@/contexts/auth-context";
 import { useShadow } from "@/contexts/shadow-context";
@@ -11,6 +11,7 @@ import { PostModal } from "./post-modal";
 import { ProfileSetupModal } from "./profile-setup-modal";
 import { SearchModal } from "./search-modal";
 import { getImageUrl, getDefaultAvatar } from "@/lib/utils";
+import * as api from "@/lib/api";
 
 // Context for post modal
 interface PostModalContextType {
@@ -68,6 +69,30 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [refreshCallbacks, setRefreshCallbacks] = useState<(() => void)[]>([]);
+  const [premiumWallets, setPremiumWallets] = useState<Map<string, { isPremium: boolean; profilePicture: string | null }>>(new Map());
+
+  // Load premium status for all shadow wallets
+  useEffect(() => {
+    const loadPremiumStatus = async () => {
+      if (shadowWallets.length === 0) return;
+
+      const newPremiumMap = new Map<string, { isPremium: boolean; profilePicture: string | null }>();
+      for (const wallet of shadowWallets) {
+        try {
+          const result = await api.isPremiumWallet(wallet.publicKey);
+          newPremiumMap.set(wallet.publicKey, {
+            isPremium: result.is_premium || false,
+            profilePicture: result.profile_picture || null,
+          });
+        } catch {
+          newPremiumMap.set(wallet.publicKey, { isPremium: false, profilePicture: null });
+        }
+      }
+      setPremiumWallets(newPremiumMap);
+    };
+
+    loadPremiumStatus();
+  }, [shadowWallets]);
 
   const registerRefreshCallback = useCallback((callback: () => void) => {
     setRefreshCallbacks(prev => [...prev, callback]);
@@ -126,56 +151,83 @@ export function AppLayout({ children }: AppLayoutProps) {
             </button>
           ) : (
             /* Has wallets - show selector dropdown */
-            <div className="relative">
-              <button
-                onClick={() => setIsIdentityOpen(!isIdentityOpen)}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-primary/30 shadow-lg hover:bg-primary/10 transition-colors"
-              >
-                <User className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground">posting as</span>
-                <span className="text-sm text-primary font-medium">{selectedWallet?.name || "Select wallet"}</span>
-                <ChevronDown className={`w-4 h-4 text-primary transition-transform ${isIdentityOpen ? "rotate-180" : ""}`} />
-              </button>
+            (() => {
+              const selectedPremiumStatus = selectedWallet ? premiumWallets.get(selectedWallet.publicKey) : null;
+              const isSelectedPremium = selectedPremiumStatus?.isPremium || false;
 
-              {isIdentityOpen && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg py-1">
-                  {shadowWallets.map((wallet, index) => (
-                    <button
-                      key={wallet.publicKey}
-                      onClick={() => {
-                        selectWallet(index);
-                        setIsIdentityOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
-                        selectedWalletIndex === index
-                          ? "bg-primary/20 text-primary"
-                          : "text-foreground hover:bg-muted"
-                      }`}
-                    >
-                      <span>{wallet.name}</span>
-                      {selectedWalletIndex === index && <Check className="w-4 h-4" />}
-                    </button>
-                  ))}
-                  <div className="border-t border-border mt-1 pt-1">
-                    <button
-                      onClick={async () => {
-                        await generateNewWallet();
-                        setIsIdentityOpen(false);
-                      }}
-                      disabled={shadowLoading}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-                    >
-                      {shadowLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Plus className="w-4 h-4" />
-                      )}
-                      <span>generate new</span>
-                    </button>
-                  </div>
+              return (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsIdentityOpen(!isIdentityOpen)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full bg-card shadow-lg hover:bg-primary/10 transition-colors ${
+                      isSelectedPremium ? "border border-pink-500/50" : "border border-primary/30"
+                    }`}
+                  >
+                    {isSelectedPremium ? (
+                      <Crown className="w-4 h-4 text-pink-500" />
+                    ) : (
+                      <User className="w-4 h-4 text-primary" />
+                    )}
+                    <span className="text-xs text-muted-foreground">posting as</span>
+                    <span className={`text-sm font-medium ${isSelectedPremium ? "text-pink-500" : "text-primary"}`}>
+                      {selectedWallet?.name || "Select wallet"}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isSelectedPremium ? "text-pink-500" : "text-primary"} ${isIdentityOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {isIdentityOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg py-1">
+                      {shadowWallets.map((wallet, index) => {
+                        const walletPremiumStatus = premiumWallets.get(wallet.publicKey);
+                        const isPremium = walletPremiumStatus?.isPremium || false;
+
+                        return (
+                          <button
+                            key={wallet.publicKey}
+                            onClick={() => {
+                              selectWallet(index);
+                              setIsIdentityOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                              selectedWalletIndex === index
+                                ? isPremium
+                                  ? "bg-pink-500/20 text-pink-500"
+                                  : "bg-primary/20 text-primary"
+                                : isPremium
+                                  ? "text-pink-500 hover:bg-pink-500/10"
+                                  : "text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {isPremium && <Crown className="w-3.5 h-3.5 text-pink-500" />}
+                              <span>{wallet.name}</span>
+                            </div>
+                            {selectedWalletIndex === index && <Check className="w-4 h-4" />}
+                          </button>
+                        );
+                      })}
+                      <div className="border-t border-border mt-1 pt-1">
+                        <button
+                          onClick={async () => {
+                            await generateNewWallet();
+                            setIsIdentityOpen(false);
+                          }}
+                          disabled={shadowLoading}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                        >
+                          {shadowLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Plus className="w-4 h-4" />
+                          )}
+                          <span>generate new</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()
           )}
         </div>
       )}

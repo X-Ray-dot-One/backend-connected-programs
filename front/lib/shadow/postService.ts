@@ -7,6 +7,7 @@ import {
   SystemProgram,
   sendAndConfirmTransaction
 } from "@solana/web3.js";
+import { invalidatePostsCache } from "./topPosts";
 
 // Configuration from environment variables
 const PROGRAM_ID = new PublicKey(
@@ -14,10 +15,10 @@ const PROGRAM_ID = new PublicKey(
 );
 const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://devnet.helius-rpc.com/?api-key=64cda369-a212-4064-8133-e0e6827644b7";
 
-// X-RAY treasury wallet - must match the one hardcoded in the Solana program
-const XRAY_TREASURY = new PublicKey(
-  process.env.NEXT_PUBLIC_XRAY_TREASURY || "6v1xwDMjdVeDZoZBLsud5KwfsB6yiZ69eS2vFXdgM93d"
-);
+// Revenue split wallets (45% / 10% / 45%)
+const WALLET_1 = new PublicKey("69TwH2GJiBSA8Eo3DunPGsXGWjNFY267zRrpHptYWCuC"); // EMILE - 45%
+const WALLET_2 = new PublicKey("EbhZhYumUZyHQCPbeaLLt57SS2obHiFdp7TMLjUBBqcD"); // GUARDIAN - 10%
+const WALLET_3 = new PublicKey("HxtzFZhjNCsQb9ZqEyK8xYftqv6j6AM2MAT6uwWG3KYd"); // SACHA - 45%
 
 let connection: Connection | null = null;
 
@@ -81,6 +82,12 @@ export async function createShadowPost(
 ): Promise<string> {
   const conn = getConnection();
 
+  // Derive PDA for the treasury account
+  const [treasuryPDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("treasury")],
+    PROGRAM_ID
+  );
+
   // Derive PDA for the post account
   const [postPDA] = PublicKey.findProgramAddressSync(
     [Buffer.from("post"), shadowKeypair.publicKey.toBuffer(), Buffer.from(target)],
@@ -111,10 +118,13 @@ export async function createShadowPost(
     bidBuffer
   ]);
 
-  // Account metas (order MUST match Rust struct: author, treasury, post, system_program)
+  // Account metas (order MUST match Rust struct: author, treasury, wallet_1, wallet_2, wallet_3, post, system_program)
   const keys = [
-    { pubkey: shadowKeypair.publicKey, isSigner: true, isWritable: true },  // author
-    { pubkey: XRAY_TREASURY, isSigner: false, isWritable: true },            // treasury (receives bid)
+    { pubkey: shadowKeypair.publicKey, isSigner: true, isWritable: true },   // author
+    { pubkey: treasuryPDA, isSigner: false, isWritable: true },              // treasury PDA
+    { pubkey: WALLET_1, isSigner: false, isWritable: true },                 // wallet_1 (GRINGO - 45%)
+    { pubkey: WALLET_2, isSigner: false, isWritable: true },                 // wallet_2 (GUARDIAN - 10%)
+    { pubkey: WALLET_3, isSigner: false, isWritable: true },                 // wallet_3 (SACHA - 45%)
     { pubkey: postPDA, isSigner: false, isWritable: true },                  // post PDA
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }  // system_program
   ];
@@ -129,6 +139,9 @@ export async function createShadowPost(
   const transaction = new Transaction().add(postInstruction);
 
   const signature = await sendAndConfirmTransaction(conn, transaction, [shadowKeypair]);
+
+  // Invalidate cache so new post appears immediately
+  invalidatePostsCache();
 
   return signature;
 }

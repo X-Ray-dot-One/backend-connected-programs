@@ -347,10 +347,10 @@ export async function getShadowWalletName(shadowPubkey: string) {
 }
 
 /**
- * Check if a wallet address is premium
+ * Check if a wallet address is premium and get profile picture
  */
 export async function isPremiumWallet(walletAddress: string) {
-  return apiCall<{ is_premium: boolean }>(`api-wallets-is-premium&walletAddress=${encodeURIComponent(walletAddress)}`);
+  return apiCall<{ is_premium: boolean; profile_picture: string | null }>(`api-wallets-is-premium&walletAddress=${encodeURIComponent(walletAddress)}`);
 }
 
 /**

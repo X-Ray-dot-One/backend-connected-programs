@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import * as api from "@/lib/api";
+import { clearShadowSession } from "./shadow-context";
 
 interface User {
   id: number;
@@ -98,6 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (walletAddress: string) => {
     setIsLoading(true);
+    // Clear any existing shadow session when switching wallets
+    clearShadowSession();
     try {
       // Add timeout to prevent infinite loading if API is down
       const timeoutPromise = new Promise((_, reject) =>
@@ -112,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setShowProfileSetup(true);
         }
       } else {
-        throw new Error(response.error || "Login failed");
+        throw new Error("Login failed");
       }
     } catch (error) {
       console.error("Login failed:", error);
@@ -130,6 +133,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       await api.logout();
+      // Clear shadow session on logout
+      clearShadowSession();
       setUser(null);
     } catch (error) {
       console.error("Logout failed:", error);

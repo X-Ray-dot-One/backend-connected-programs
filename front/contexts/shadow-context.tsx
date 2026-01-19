@@ -58,6 +58,17 @@ const ShadowContext = createContext<ShadowContextType | undefined>(undefined);
 const SIGN_MESSAGE = "X-RAY Shadow Wallet Access";
 const STORAGE_KEY_PREFIX = "xray_shadow_";
 const SESSION_KEY = "xray_shadow_session";
+const CLEAR_SHADOW_EVENT = "xray_clear_shadow";
+
+// Export function to clear shadow session (for use in auth-context)
+// This triggers a custom event that the ShadowProvider listens to
+export function clearShadowSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+  // Dispatch event to notify ShadowProvider to reset its state
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(CLEAR_SHADOW_EVENT));
+  }
+}
 
 // ============================================================================
 // PROVIDER
@@ -469,6 +480,22 @@ export function ShadowProvider({ children }: { children: ReactNode }) {
   // ============================================================================
   // EFFECTS
   // ============================================================================
+
+  // Listen for clear shadow event (triggered by logout/wallet change)
+  useEffect(() => {
+    const handleClearShadow = () => {
+      setIsUnlocked(false);
+      setSignature(null);
+      setHashedUserId(null);
+      setPublicKey(null);
+      setWallets([]);
+      setSelectedWalletIndex(null);
+      setStats(null);
+    };
+
+    window.addEventListener(CLEAR_SHADOW_EVENT, handleClearShadow);
+    return () => window.removeEventListener(CLEAR_SHADOW_EVENT, handleClearShadow);
+  }, []);
 
   // Refresh stats when selected wallet changes (with delay to avoid rate limits)
   useEffect(() => {

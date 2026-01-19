@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Image, EyeOff, Target, Zap, Lock, Check, HelpCircle, ChevronDown, Plus, Loader2, Key, AlertCircle, Eye, ArrowDownToLine, Wallet } from "lucide-react";
+import { X, Image, EyeOff, Target, Zap, Lock, Check, HelpCircle, ChevronDown, Plus, Loader2, Key, AlertCircle, Eye, ArrowDownToLine, Wallet, Crown } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as api from "@/lib/api";
 import { getImageUrl } from "@/lib/utils";
@@ -324,12 +324,38 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Premium status for shadow wallets
+  const [premiumWallets, setPremiumWallets] = useState<Map<string, { isPremium: boolean; profilePicture: string | null }>>(new Map());
+
   // Load suggested users when modal opens
   useEffect(() => {
     if (isOpen) {
       loadSuggestedUsers();
     }
   }, [isOpen]);
+
+  // Load premium status for shadow wallets
+  useEffect(() => {
+    const loadPremiumStatus = async () => {
+      if (shadowWallets.length === 0) return;
+
+      const newPremiumMap = new Map<string, { isPremium: boolean; profilePicture: string | null }>();
+      for (const wallet of shadowWallets) {
+        try {
+          const result = await api.isPremiumWallet(wallet.publicKey);
+          newPremiumMap.set(wallet.publicKey, {
+            isPremium: result.is_premium || false,
+            profilePicture: result.profile_picture || null,
+          });
+        } catch {
+          newPremiumMap.set(wallet.publicKey, { isPremium: false, profilePicture: null });
+        }
+      }
+      setPremiumWallets(newPremiumMap);
+    };
+
+    loadPremiumStatus();
+  }, [shadowWallets]);
 
   const loadSuggestedUsers = async () => {
     try {
@@ -933,36 +959,56 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
 
                     {/* Identity Dropdown - Real shadow wallets */}
                     <div className="relative">
-                      <button
-                        onClick={() => setIsIdentityDropdownOpen(!isIdentityDropdownOpen)}
-                        disabled={!isShadowUnlocked || shadowWallets.length === 0}
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span className="text-sm font-medium text-primary">
-                          {selectedWallet?.name || "No wallet"}
-                        </span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-primary transition-transform ${isIdentityDropdownOpen ? "rotate-180" : ""}`} />
-                      </button>
+                      {(() => {
+                        const isSelectedPremium = selectedWallet ? premiumWallets.get(selectedWallet.publicKey)?.isPremium : false;
+                        return (
+                          <button
+                            onClick={() => setIsIdentityDropdownOpen(!isIdentityDropdownOpen)}
+                            disabled={!isShadowUnlocked || shadowWallets.length === 0}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                              isSelectedPremium
+                                ? "bg-pink-500/10 hover:bg-pink-500/20"
+                                : "bg-primary/10 hover:bg-primary/20"
+                            }`}
+                          >
+                            {isSelectedPremium && <Crown className="w-3.5 h-3.5 text-pink-500" />}
+                            <span className={`text-sm font-medium ${isSelectedPremium ? "text-pink-500" : "text-primary"}`}>
+                              {selectedWallet?.name || "No wallet"}
+                            </span>
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isSelectedPremium ? "text-pink-500" : "text-primary"} ${isIdentityDropdownOpen ? "rotate-180" : ""}`} />
+                          </button>
+                        );
+                      })()}
 
                       {isIdentityDropdownOpen && shadowWallets.length > 0 && (
                         <div className="absolute left-0 top-full mt-1 w-48 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
-                          {shadowWallets.map((wallet, index) => (
-                            <button
-                              key={wallet.publicKey}
-                              onClick={() => {
-                                selectWallet(index);
-                                setIsIdentityDropdownOpen(false);
-                              }}
-                              className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
-                                selectedWalletIndex === index
-                                  ? "bg-primary/20 text-primary"
-                                  : "text-foreground hover:bg-muted"
-                              }`}
-                            >
-                              <span>{wallet.name}</span>
-                              {selectedWalletIndex === index && <Check className="w-4 h-4" />}
-                            </button>
-                          ))}
+                          {shadowWallets.map((wallet, index) => {
+                            const isPremium = premiumWallets.get(wallet.publicKey)?.isPremium || false;
+                            return (
+                              <button
+                                key={wallet.publicKey}
+                                onClick={() => {
+                                  selectWallet(index);
+                                  setIsIdentityDropdownOpen(false);
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                                  selectedWalletIndex === index
+                                    ? isPremium
+                                      ? "bg-pink-500/20 text-pink-500"
+                                      : "bg-primary/20 text-primary"
+                                    : isPremium
+                                      ? "text-pink-500 hover:bg-pink-500/10"
+                                      : "text-foreground hover:bg-muted"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {isPremium && <Crown className="w-3.5 h-3.5 text-pink-500" />}
+                                  <span>{wallet.name}</span>
+                                </div>
+                                {selectedWalletIndex === index && <Check className="w-4 h-4" />}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

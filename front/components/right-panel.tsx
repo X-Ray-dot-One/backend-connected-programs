@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, TrendingUp, Flame, Globe, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, TrendingUp, Flame, Globe, Loader2, Crown } from "lucide-react";
 import { useMode } from "@/contexts/mode-context";
 import { useSearchModal } from "./app-layout";
 import { getTop20Posts, TopPost } from "@/lib/shadow/topPosts";
-import { getShadowWalletName } from "@/lib/api";
+import { getShadowWalletName, isPremiumWallet } from "@/lib/api";
+import { getImageUrl } from "@/lib/utils";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { EyeOff } from "lucide-react";
 
 // Mock data - waiting for API endpoints
 const trendingTopics = [
@@ -78,12 +81,15 @@ function shortenAuthor(author: string): string {
   return `${author.slice(0, 4)}...${author.slice(-4)}`;
 }
 
-// Extended TopPost with name
+// Extended TopPost with name, premium status, and profile picture
 interface TopPostWithName extends TopPost {
   authorName?: string;
+  isPremium?: boolean;
+  premiumPfp?: string | null;
 }
 
 export function RightPanel() {
+  const router = useRouter();
   const { isShadowMode } = useMode();
   const { openSearchModal } = useSearchModal();
   const [followingIds, setFollowingIds] = useState<Set<number>>(new Set());
@@ -97,15 +103,34 @@ export function RightPanel() {
       getTop20Posts()
         .then(async (posts) => {
           const topFive = posts.slice(0, 5);
-          // Fetch names for all authors in parallel
+          // Fetch names and premium status for all authors in parallel
           const postsWithNames = await Promise.all(
             topFive.map(async (post) => {
+              let authorName: string | undefined;
+              let isPremium = false;
+
               try {
-                const result = await getShadowWalletName(post.author);
-                return { ...post, authorName: result.name || undefined };
-              } catch {
-                return { ...post };
+                const nameResult = await getShadowWalletName(post.author);
+                authorName = nameResult.name || undefined;
+              } catch (e) {
+                console.error("Failed to get shadow name:", e);
               }
+
+              let premiumPfp: string | null = null;
+              try {
+                const premiumResult = await isPremiumWallet(post.author);
+                isPremium = premiumResult.is_premium || false;
+                premiumPfp = premiumResult.profile_picture || null;
+              } catch (e) {
+                console.error("Failed to get premium status:", e);
+              }
+
+              return {
+                ...post,
+                authorName,
+                isPremium,
+                premiumPfp,
+              };
             })
           );
           setTopPosts(postsWithNames);
@@ -168,13 +193,32 @@ export function RightPanel() {
               </div>
             ) : (
               topPosts.map((post) => (
-                <a
+                <button
                   key={post.pubkey}
-                  href={`/shadow/post/${post.pubkey}`}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-muted transition-colors cursor-pointer"
+                  onClick={() => {
+                    if (post.authorName) {
+                      router.push(`/shadow/${encodeURIComponent(post.authorName)}`);
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors cursor-pointer text-left"
                 >
+                  {/* Avatar - premium pfp or anonymous icon */}
+                  <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden ${
+                    post.isPremium ? "bg-pink-500/20" : "bg-primary/20"
+                  }`}>
+                    {post.premiumPfp ? (
+                      <img
+                        src={getImageUrl(post.premiumPfp, "")}
+                        alt="Premium avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <EyeOff className={`w-4 h-4 ${post.isPremium ? "text-pink-500" : "text-primary"}`} />
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground text-sm">
+                    <p className={`font-medium text-sm flex items-center gap-1 ${post.isPremium ? "text-pink-500" : "text-foreground"}`}>
+                      {post.isPremium && <Crown className="w-3 h-3 text-pink-500" />}
                       {post.authorName || shortenAuthor(post.author)}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">{post.content.slice(0, 30)}...</p>
@@ -183,7 +227,7 @@ export function RightPanel() {
                     <p className="text-sm font-medium text-primary">{formatSol(post.bid)}</p>
                     <p className="text-xs text-muted-foreground">{formatTimeAgo(post.timestamp)}</p>
                   </div>
-                </a>
+                </button>
               ))
             )
           ) : (
