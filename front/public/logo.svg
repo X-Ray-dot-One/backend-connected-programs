@@ -1,0 +1,28 @@
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fedora hat -->
+  <ellipse cx="50" cy="32" rx="38" ry="8" fill="#0077b6" opacity="0.9"/>
+  <path d="M20 32 Q25 15 50 12 Q75 15 80 32" fill="#0077b6"/>
+  <path d="M15 32 Q17 28 25 26 L75 26 Q83 28 85 32 L80 34 Q75 30 50 30 Q25 30 20 34 Z" fill="#0077b6"/>
+
+  <!-- Face/Head outline -->
+  <ellipse cx="50" cy="58" rx="28" ry="24" fill="#0077b6" opacity="0.15"/>
+
+  <!-- Glasses frames -->
+  <ellipse cx="36" cy="54" rx="12" ry="10" stroke="#0077b6" stroke-width="3" fill="none"/>
+  <ellipse cx="64" cy="54" rx="12" ry="10" stroke="#0077b6" stroke-width="3" fill="none"/>
+  <!-- Bridge -->
+  <path d="M48 54 L52 54" stroke="#0077b6" stroke-width="3"/>
+  <!-- Temples -->
+  <path d="M24 52 L18 48" stroke="#0077b6" stroke-width="2.5"/>
+  <path d="M76 52 L82 48" stroke="#0077b6" stroke-width="2.5"/>
+
+  <!-- Eyes (looking mysterious) -->
+  <ellipse cx="36" cy="55" rx="4" ry="3" fill="#0077b6"/>
+  <ellipse cx="64" cy="55" rx="4" ry="3" fill="#0077b6"/>
+
+  <!-- Subtle nose -->
+  <path d="M50 60 L50 66" stroke="#0077b6" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Collar/coat hint -->
+  <path d="M30 80 L42 72 L50 76 L58 72 L70 80" stroke="#0077b6" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>
