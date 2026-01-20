@@ -298,7 +298,7 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
   // Shadow mode specific states
   const [targetUser, setTargetUser] = useState("");
   const [targetPlatform, setTargetPlatform] = useState<"xray" | "twitter">("xray");
-  const [boostAmount, setBoostAmount] = useState(0.15); // SOL - minimum bid
+  const [boostAmount, setBoostAmount] = useState(0.007); // SOL - minimum bid (0.007 SOL bid + ~0.008 SOL fees = 0.015 SOL total for Privacy Cash)
   const [showTargetDropdown, setShowTargetDropdown] = useState(false);
   const [targetQuery, setTargetQuery] = useState("");
   const [isTargetLocked, setIsTargetLocked] = useState(false);
@@ -309,7 +309,7 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
   const [isIdentityDropdownOpen, setIsIdentityDropdownOpen] = useState(false);
   const [bidPreview, setBidPreview] = useState<{ position: number; totalPosts: number } | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const [bidRange, setBidRange] = useState<{ min: number; max: number }>({ min: 0.15, max: 10 });
+  const [bidRange, setBidRange] = useState<{ min: number; max: number }>({ min: 0.007, max: 1 });
   const [isLockingTarget, setIsLockingTarget] = useState(false);
   const [targetBids, setTargetBids] = useState<bigint[]>([]); // Store existing bids for local position calculation
 
@@ -424,7 +424,7 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
   useEffect(() => {
     if (!isTargetLocked || !targetUser) {
       setBidPreview(null);
-      setBidRange({ min: 0.15, max: 10 });
+      setBidRange({ min: 0.007, max: 1 });
       setTargetBids([]);
       return;
     }
@@ -454,14 +454,14 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
         setTargetBids(stats.bids);
 
         // Calculate bid range from existing posts
-        const MIN_BID_SOL = 0.15; // Minimum possible bid
-        let maxBidSol = 10; // Default max
+        const MIN_BID_SOL = 0.007; // Minimum possible bid (0.007 SOL bid + ~0.008 SOL fees = 0.015 SOL total for Privacy Cash)
+        let maxBidSol = 1; // Default max
 
         if (stats.bids.length > 0) {
-          // Max bid from existing posts (last in sorted array) + 10 SOL
+          // Max bid from existing posts (last in sorted array) + 1 SOL
           const highestBidLamports = stats.bids[stats.bids.length - 1];
           const highestBidSol = Number(highestBidLamports) / 1_000_000_000;
-          maxBidSol = Math.max(highestBidSol + 10, 10);
+          maxBidSol = Math.max(highestBidSol + 1, 1);
         }
 
         setBidRange({ min: MIN_BID_SOL, max: maxBidSol });
@@ -747,12 +747,12 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
       setContent("");
       setTargetUser("");
       setTargetQuery("");
-      setBoostAmount(0.15);
+      setBoostAmount(0.007);
       setIsTargetLocked(false);
       setManualBoostInput("");
       setManualPositionInput("");
       setBidPreview(null);
-      setBidRange({ min: 0.15, max: 10 });
+      setBidRange({ min: 0.007, max: 1 });
       onClose();
       onPostSuccess?.();
     } catch (err) {
@@ -817,7 +817,7 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
 
   const handleUnlockTarget = () => {
     setIsTargetLocked(false);
-    setBidRange({ min: 0.15, max: 10 });
+    setBidRange({ min: 0.007, max: 1 });
     setTargetBids([]);
     setBidPreview(null);
   };
@@ -1245,7 +1245,7 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
                                 }}
                                 onBlur={() => {
                                   setManualBoostInput("");
-                                  if (boostAmount < 0.15) setBoostAmount(0.15);
+                                  if (boostAmount < 0.007) setBoostAmount(0.007);
                                 }}
                                 placeholder="0.01"
                                 className="w-16 bg-transparent text-base font-medium text-primary text-right focus:outline-none"
