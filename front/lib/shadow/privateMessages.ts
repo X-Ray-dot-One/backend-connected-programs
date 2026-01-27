@@ -1,6 +1,11 @@
 import { PublicKey, Connection, SystemProgram, Transaction } from "@solana/web3.js";
 import * as nacl from "tweetnacl";
 import { getShadowWalletName } from "@/lib/api";
+import {
+  RescueCipher,
+  x25519,
+  getClusterAccAddress,
+} from "@arcium-hq/client";
 
 // ============================================================================
 // CONFIGURATION
@@ -8,6 +13,9 @@ import { getShadowWalletName } from "@/lib/api";
 
 export const PRIVATE_MESSAGES_PROGRAM_ID = new PublicKey("A8r4vLoD79gtdwvyHBY7bXzRSXjFNBbuXic9cPHUJa2s");
 const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
+
+// Arcium Configuration
+const ARCIUM_CLUSTER_OFFSET = 456; // Devnet cluster offset
 
 // ============================================================================
 // TYPES
@@ -43,9 +51,71 @@ export interface X25519KeyPair {
 export async function deriveX25519KeyPairFromKeypair(
   shadowSecretKey: Uint8Array
 ): Promise<X25519KeyPair> {
-  const hashBuffer = await crypto.subtle.digest("SHA-256", shadowSecretKey);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", new Uint8Array(shadowSecretKey));
   const seed = new Uint8Array(hashBuffer);
   return nacl.box.keyPair.fromSecretKey(seed);
+}
+
+// ============================================================================
+// ARCIUM MPC ENCRYPTION
+// ============================================================================
+
+/**
+ * Hash a public key using SHA-256
+ */
+async function hashPublicKey(pubkey: PublicKey): Promise<Uint8Array> {
+  const bytes = new Uint8Array(pubkey.toBuffer());
+  const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
+  return new Uint8Array(hashBuffer);
+}
+
+/**
+ * Encrypt a 32-byte hash with RescueCipher for MPC (returns 32-byte ciphertext)
+ */
+function encryptHashForMPC(
+  hash: Uint8Array,
+  cipher: RescueCipher,
+  nonce: Uint8Array
+): Uint8Array {
+  // Split the 32-byte hash into 4 u64 values for RescueCipher
+  const values: bigint[] = [];
+  for (let i = 0; i < 4; i++) {
+    let val = BigInt(0);
+    for (let j = 0; j < 8; j++) {
+      val |= BigInt(hash[i * 8 + j]) << BigInt(j * 8);
+    }
+    values.push(val);
+  }
+
+  // Encrypt with RescueCipher
+  const ciphertexts = cipher.encrypt(values, nonce);
+
+  // Flatten ciphertexts back to 32 bytes (take first 32 bytes)
+  const result = new Uint8Array(32);
+  for (let i = 0; i < 4 && i < ciphertexts.length; i++) {
+    const ct = ciphertexts[i];
+    for (let j = 0; j < 8 && i * 8 + j < 32; j++) {
+      result[i * 8 + j] = ct[j];
+    }
+  }
+  return result;
+}
+
+/**
+ * Fetch MXE public key from Arcium cluster
+ */
+async function fetchMXEPublicKey(connection: Connection): Promise<Uint8Array | null> {
+  try {
+    const clusterAddress = getClusterAccAddress(ARCIUM_CLUSTER_OFFSET);
+    const clusterInfo = await connection.getAccountInfo(clusterAddress);
+    if (!clusterInfo) return null;
+    // The cluster account stores the MXE x25519 public key
+    // Offset: 8 (discriminator) + 8 (offset) + 8 (other fields) = 24
+    const pubkeyOffset = 8 + 8 + 8;
+    return new Uint8Array(clusterInfo.data.slice(pubkeyOffset, pubkeyOffset + 32));
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================================
@@ -254,29 +324,61 @@ export async function updateUserKey(
 export async function sendPrivateMessageOnChain(
   connection: Connection,
   senderPubkey: PublicKey,
+  recipientPubkey: PublicKey,
   encryptedContent: Uint8Array,
   nonce: Uint8Array,
   signTransaction: (tx: Transaction) => Promise<Transaction>
 ): Promise<string> {
   const messageIndex = await getMessageIndex(senderPubkey.toString());
 
+  // Fetch MXE public key for Arcium encryption
+  const mxePublicKey = await fetchMXEPublicKey(connection);
+
+  let encryptedSenderHash: Uint8Array;
+  let encryptedRecipientHash: Uint8Array;
+  let mpcEphemeralPubkey: Uint8Array;
+  let mpcNonceBytes: Uint8Array;
+
+  if (mxePublicKey) {
+    // Generate ephemeral keypair for MPC encryption
+    const mpcPrivateKey = x25519.utils.randomPrivateKey();
+    mpcEphemeralPubkey = x25519.getPublicKey(mpcPrivateKey);
+    const mpcSharedSecret = x25519.getSharedSecret(mpcPrivateKey, mxePublicKey);
+    const cipher = new RescueCipher(mpcSharedSecret);
+
+    // Hash sender and recipient pubkeys
+    const senderHash = await hashPublicKey(senderPubkey);
+    const recipientHash = await hashPublicKey(recipientPubkey);
+
+    // Create MPC nonce
+    mpcNonceBytes = new Uint8Array(16);
+    crypto.getRandomValues(mpcNonceBytes);
+
+    // Encrypt sender and recipient hashes with RescueCipher
+    encryptedSenderHash = encryptHashForMPC(senderHash, cipher, mpcNonceBytes);
+    encryptedRecipientHash = encryptHashForMPC(recipientHash, cipher, mpcNonceBytes);
+  } else {
+    // Fallback: no MPC encryption (cluster not available)
+    encryptedSenderHash = new Uint8Array(32);
+    encryptedRecipientHash = new Uint8Array(32);
+    mpcEphemeralPubkey = new Uint8Array(32);
+    mpcNonceBytes = new Uint8Array(16);
+  }
+
   const discriminator = Buffer.from([241, 158, 126, 220, 116, 108, 212, 168]);
   const messageIndexBuffer = bigintToLeBytes(messageIndex, 8);
-  const emptyHash = new Uint8Array(32);
   const contentLenBuffer = bigintToLeBytes(BigInt(encryptedContent.length), 4);
-  const emptyMpcPubkey = new Uint8Array(32);
-  const emptyMpcNonce = new Uint8Array(16);
 
   const instructionData = Buffer.concat([
     discriminator,
     messageIndexBuffer,
-    emptyHash,
-    emptyHash,
+    Buffer.from(encryptedSenderHash),
+    Buffer.from(encryptedRecipientHash),
     contentLenBuffer,
     Buffer.from(encryptedContent),
     Buffer.from(nonce),
-    emptyMpcPubkey,
-    emptyMpcNonce,
+    Buffer.from(mpcEphemeralPubkey),
+    Buffer.from(mpcNonceBytes),
   ]);
 
   const [counterPDA] = getPrivateMessageCounterPDA();

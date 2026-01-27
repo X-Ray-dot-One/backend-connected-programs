@@ -47,7 +47,7 @@ function extractTarget(target: string): { name: string; platform: string } {
 }
 
 // Shadow post card component
-function ShadowPostCard({ post, walletName, isOwnPost, isPremium, premiumPfp }: { post: TopPostWithRank; walletName: string; isOwnPost: boolean; isPremium: boolean; premiumPfp: string | null }) {
+function ShadowPostCard({ post, walletName, isOwnPost, isPremium, premiumPfp, onTargetClick }: { post: TopPostWithRank; walletName: string; isOwnPost: boolean; isPremium: boolean; premiumPfp: string | null; onTargetClick: (target: string, platform: string) => void }) {
   const target = extractTarget(post.target);
 
   return (
@@ -72,10 +72,13 @@ function ShadowPostCard({ post, walletName, isOwnPost, isPremium, premiumPfp }: 
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`font-medium ${isPremium ? "text-pink-500" : "text-primary"}`}>{walletName}</span>
             <span className="text-muted-foreground text-sm">→</span>
-            <span className="text-sm text-foreground">
+            <button
+              onClick={() => onTargetClick(target.name, target.platform)}
+              className="text-sm text-foreground hover:text-primary hover:underline transition-colors"
+            >
               @{target.name}
               <span className="text-muted-foreground/60 text-xs ml-1">({target.platform})</span>
-            </span>
+            </button>
             <span className="text-muted-foreground text-sm">
               {getTimeAgo(post.timestamp)}
             </span>
@@ -127,6 +130,15 @@ function ShadowProfileContent() {
 
   // Check if this is our own wallet
   const isOwnWallet = walletPubkey ? myWallets.some(w => w.publicKey === walletPubkey) : false;
+
+  // Handle target click - navigate to the target's profile
+  const handleTargetClick = (targetName: string, platform: string) => {
+    if (platform === "X") {
+      router.push(`/user/x/${targetName}`);
+    } else if (platform === "X-RAY") {
+      router.push(`/user/${targetName}`);
+    }
+  };
 
   // Handle refresh flag from NDD purchase
   useEffect(() => {
@@ -370,7 +382,7 @@ function ShadowProfileContent() {
           </div>
         ) : (
           getFilteredPosts().map((post) => (
-            <ShadowPostCard key={post.pubkey} post={post} walletName={name} isOwnPost={isOwnWallet} isPremium={isPremium} premiumPfp={premiumPfp} />
+            <ShadowPostCard key={post.pubkey} post={post} walletName={name} isOwnPost={isOwnWallet} isPremium={isPremium} premiumPfp={premiumPfp} onTargetClick={handleTargetClick} />
           ))
         )}
       </div>

@@ -308,10 +308,11 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       return tx;
     };
 
-    // Send the message on-chain
+    // Send the message on-chain (with Arcium MPC encrypted metadata)
     const messageSignature = await sendPrivateMessageOnChain(
       connection,
       keypair.publicKey,
+      new PublicKey(selectedContact.walletAddress),
       encrypted,
       nonce,
       signTransaction

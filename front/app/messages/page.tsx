@@ -26,6 +26,7 @@ import {
   Crown,
   ExternalLink,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   Connection,
   PublicKey,
@@ -62,6 +63,7 @@ function formatTimeAgo(timestamp: number): string {
 }
 
 function MessagesContent() {
+  const router = useRouter();
   const { selectedWallet, isUnlocked: shadowUnlocked, refreshBalances } = useShadow();
   const { user } = useAuth();
   const publicWallet = user?.wallet_address;
@@ -102,6 +104,11 @@ function MessagesContent() {
   const [pendingSelectWallet, setPendingSelectWallet] = useState<string | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Funding modal state
+  const [showFundingModal, setShowFundingModal] = useState(false);
+  const [selectedFundingAmount, setSelectedFundingAmount] = useState(0.2); // Default 0.2 SOL
+  const [fundsIncomingTimer, setFundsIncomingTimer] = useState<number | null>(null); // Countdown timer
+
   // Premium status cache for contacts
   const [contactPremiumInfo, setContactPremiumInfo] = useState<Map<string, { isPremium: boolean; pfp: string | null }>>(new Map());
 
@@ -115,13 +122,30 @@ function MessagesContent() {
   const walletBalanceSol = walletBalanceLamports / LAMPORTS_PER_SOL;
   const hasEnoughSol = walletBalanceSol >= 0.003;
 
-  // When balance becomes sufficient, stop the funding loader
+  // When balance becomes sufficient, stop the funding loader and timer
   useEffect(() => {
     if (hasEnoughSol && fundingStep === "waiting") {
       setIsFunding(false);
       setFundingStep("idle");
+      setFundsIncomingTimer(null);
     }
   }, [hasEnoughSol, fundingStep]);
+
+  // Countdown timer for funds incoming
+  useEffect(() => {
+    if (fundsIncomingTimer === null || fundsIncomingTimer <= 0) return;
+
+    const interval = setInterval(() => {
+      setFundsIncomingTimer(prev => {
+        if (prev === null || prev <= 1) {
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [fundsIncomingTimer]);
 
   // Background registration - happens silently when conditions are met
   useEffect(() => {
@@ -172,41 +196,70 @@ function MessagesContent() {
   // Load premium status for contacts
   useEffect(() => {
     const loadPremiumInfo = async () => {
-      const newPremiumInfo = new Map(contactPremiumInfo);
-      let hasUpdates = false;
+      // Filter contacts that don't have premium info yet
+      const contactsToLoad = contacts.filter(c => !contactPremiumInfo.has(c.walletAddress));
 
-      for (const contact of contacts) {
-        if (!newPremiumInfo.has(contact.walletAddress)) {
+      if (contactsToLoad.length === 0) return;
+
+      // Load all premium info in parallel
+      const results = await Promise.all(
+        contactsToLoad.map(async (contact) => {
           try {
             const info = await isPremiumWallet(contact.walletAddress);
-            newPremiumInfo.set(contact.walletAddress, {
+            return {
+              walletAddress: contact.walletAddress,
               isPremium: info.is_premium || false,
               pfp: info.profile_picture || null,
-            });
-            hasUpdates = true;
+            };
           } catch {
-            newPremiumInfo.set(contact.walletAddress, { isPremium: false, pfp: null });
+            return {
+              walletAddress: contact.walletAddress,
+              isPremium: false,
+              pfp: null,
+            };
           }
-        }
-      }
+        })
+      );
 
-      if (hasUpdates) {
-        setContactPremiumInfo(newPremiumInfo);
-      }
+      // Update state with all results at once
+      setContactPremiumInfo(prev => {
+        const updated = new Map(prev);
+        for (const result of results) {
+          updated.set(result.walletAddress, {
+            isPremium: result.isPremium,
+            pfp: result.pfp,
+          });
+        }
+        return updated;
+      });
     };
 
     if (contacts.length > 0) {
       loadPremiumInfo();
     }
-  }, [contacts]);
+  }, [contacts, contactPremiumInfo]);
+
+  // Cost per message (rent-exempt minimum for message account + tx fees)
+  const COST_PER_MESSAGE_SOL = 0.004;
+  const MIN_BALANCE_FOR_MESSAGE = 0.004 * LAMPORTS_PER_SOL;
+
+  // Funding amount options with estimated messages
+  const fundingOptions = [
+    { amount: 0.05, messages: Math.floor(0.05 / COST_PER_MESSAGE_SOL) },
+    { amount: 0.1, messages: Math.floor(0.1 / COST_PER_MESSAGE_SOL) },
+    { amount: 0.2, messages: Math.floor(0.2 / COST_PER_MESSAGE_SOL) },
+    { amount: 0.5, messages: Math.floor(0.5 / COST_PER_MESSAGE_SOL) },
+  ];
 
   // Handle funding shadow wallet from public wallet
-  const handleFundWallet = async () => {
+  const handleFundWallet = async (amount?: number) => {
     if (!publicWallet || !shadowWalletAddress) {
       showToast("Wallet not connected", "error");
       return;
     }
 
+    const fundAmount = amount || selectedFundingAmount;
+    setShowFundingModal(false);
     setIsFunding(true);
     setFundingStep("signing");
     try {
@@ -214,8 +267,7 @@ function MessagesContent() {
       const fromPubkey = new PublicKey(publicWallet);
       const toPubkey = new PublicKey(shadowWalletAddress);
 
-      // Send 0.005 SOL (enough for registration + some buffer)
-      const lamports = Math.floor(0.005 * LAMPORTS_PER_SOL);
+      const lamports = Math.floor(fundAmount * LAMPORTS_PER_SOL);
 
       const transaction = new Transaction().add(
         SystemProgram.transfer({
@@ -238,8 +290,9 @@ function MessagesContent() {
       const { signature } = await wallet.signAndSendTransaction(transaction);
       await connection.confirmTransaction(signature, "confirmed");
 
-      showToast("Wallet funded!", "success");
+      showToast("Transaction confirmed! Funds incoming...", "success");
       setFundingStep("waiting");
+      setFundsIncomingTimer(40); // Start 40 second countdown
 
       // Keep polling until React state reflects the new balance
       // The useEffect above will reset isFunding when hasEnoughSol becomes true
@@ -267,6 +320,12 @@ function MessagesContent() {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedContact || isSending) return;
+
+    // Check if we have enough balance to send a message
+    if (walletBalanceLamports < MIN_BALANCE_FOR_MESSAGE) {
+      setShowFundingModal(true);
+      return;
+    }
 
     const messageContent = newMessage.trim();
     setNewMessage(""); // Clear input immediately for better UX
@@ -612,6 +671,13 @@ function MessagesContent() {
             </span>
           </div>
           {/* Status banner */}
+          {fundsIncomingTimer !== null && (
+            <div className="flex items-center gap-2 mt-2 px-2 py-1.5 rounded bg-[#14F195]/10 text-xs text-[#14F195] border border-[#14F195]/20">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span className="flex-1">Funds incoming...</span>
+              <span className="font-mono bg-[#14F195]/20 px-1.5 py-0.5 rounded">{fundsIncomingTimer}s</span>
+            </div>
+          )}
           {isCurrentlyRegistering && (
             <div className="flex items-center gap-2 mt-2 px-2 py-1 rounded bg-primary/10 text-xs text-primary">
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -744,11 +810,16 @@ function MessagesContent() {
               const isPremium = premiumInfo?.isPremium || false;
               const premiumPfp = premiumInfo?.pfp || null;
 
+              const handleProfileClick = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                router.push(`/shadow/${encodeURIComponent(contact.name)}`);
+              };
+
               return (
-                <button
+                <div
                   key={contact.walletAddress}
                   onClick={() => selectContact(contact)}
-                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors ${
+                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${
                     selectedContact?.walletAddress === contact.walletAddress
                       ? isPremium
                         ? "bg-pink-500/10 border-l-2 border-pink-500"
@@ -756,9 +827,13 @@ function MessagesContent() {
                       : ""
                   }`}
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
-                    isPremium ? "bg-pink-500/20" : "bg-primary/20"
-                  }`}>
+                  <div
+                    onClick={handleProfileClick}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer hover:ring-2 transition-all ${
+                      isPremium ? "bg-pink-500/20 hover:ring-pink-500" : "bg-primary/20 hover:ring-primary"
+                    }`}
+                    title={`View ${contact.name}'s profile`}
+                  >
                     {isPremium && premiumPfp ? (
                       <img
                         src={premiumPfp.startsWith('http') ? premiumPfp : `/api/public/${premiumPfp}`}
@@ -781,7 +856,7 @@ function MessagesContent() {
                       )}
                     </div>
                   </div>
-                </button>
+                </div>
               );
             })
           )}
@@ -802,9 +877,13 @@ function MessagesContent() {
                 <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden ${
-                        isSelectedPremium ? "bg-pink-500/20" : "bg-primary/20"
-                      }`}>
+                      <div
+                        onClick={() => router.push(`/shadow/${encodeURIComponent(selectedContact.name)}`)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 transition-all ${
+                          isSelectedPremium ? "bg-pink-500/20 hover:ring-pink-500" : "bg-primary/20 hover:ring-primary"
+                        }`}
+                        title={`View ${selectedContact.name}'s profile`}
+                      >
                         {isSelectedPremium && selectedPremiumPfp ? (
                           <img
                             src={selectedPremiumPfp.startsWith('http') ? selectedPremiumPfp : `/api/public/${selectedPremiumPfp}`}
@@ -818,7 +897,10 @@ function MessagesContent() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <h2 className={`font-bold ${isSelectedPremium ? "text-pink-500" : "text-foreground"}`}>
+                        <h2
+                          onClick={() => router.push(`/shadow/${encodeURIComponent(selectedContact.name)}`)}
+                          className={`font-bold cursor-pointer hover:underline ${isSelectedPremium ? "text-pink-500" : "text-foreground"}`}
+                        >
                           {selectedContact.name}
                         </h2>
                         {isSelectedPremium && (
@@ -929,6 +1011,91 @@ function MessagesContent() {
           </div>
         )}
       </div>
+
+      {/* Funding Modal */}
+      {showFundingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowFundingModal(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-card border border-border rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Fund Your Wallet</h3>
+                <p className="text-sm text-muted-foreground">
+                  Balance: {walletBalanceSol.toFixed(4)} SOL
+                </p>
+              </div>
+            </div>
+
+            {/* Description */}
+            <p className="text-sm text-muted-foreground mb-6">
+              Your shadow wallet needs SOL to send messages. Each message costs approximately {COST_PER_MESSAGE_SOL} SOL.
+            </p>
+
+            {/* Funding Options */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {fundingOptions.map((option) => (
+                <button
+                  key={option.amount}
+                  onClick={() => setSelectedFundingAmount(option.amount)}
+                  className={`p-4 rounded-xl border-2 transition-all text-left ${
+                    selectedFundingAmount === option.amount
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50 hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="font-bold text-foreground">{option.amount} SOL</div>
+                  <div className="text-sm text-muted-foreground">≈ {option.messages} messages</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowFundingModal(false)}
+                className="flex-1 px-4 py-3 rounded-xl border border-border text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleFundWallet(selectedFundingAmount)}
+                disabled={isFunding || !publicWallet}
+                className="flex-1 px-4 py-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isFunding ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Funding...</span>
+                  </>
+                ) : !publicWallet ? (
+                  <span>Connect wallet first</span>
+                ) : (
+                  <>
+                    <Wallet className="w-4 h-4" />
+                    <span>Fund {selectedFundingAmount} SOL</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Info */}
+            <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+              <Shield className="w-3 h-3 flex-shrink-0" />
+              <span>Funds are transferred from your connected Phantom wallet</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
