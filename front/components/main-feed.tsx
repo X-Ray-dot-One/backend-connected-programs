@@ -514,7 +514,7 @@ export function MainFeed() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {isShadowMode
-              ? "You are browsing anonymously via Arcium encryption"
+              ? "You are browsing anonymously via Privacy Cash encryption"
               : "Your wallet identity is visible to others"}
           </p>
         </div>

@@ -12,6 +12,7 @@ import {
   EyeOff,
   Zap,
   ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getImageUrl } from "@/lib/utils";
@@ -124,7 +125,8 @@ function ShadowProfileContent() {
   const [error, setError] = useState<string | null>(null);
   const [walletPubkey, setWalletPubkey] = useState<string | null>(null);
   const [stats, setStats] = useState<ShadowProfileStats | null>(null);
-  const [shadowTab, setShadowTab] = useState<"top" | "posts" | "history">("top");
+  const [shadowTab, setShadowTab] = useState<"top" | "posts">("top");
+  const [topSortBy, setTopSortBy] = useState<"bid" | "position">("bid");
   const [isPremium, setIsPremium] = useState(false);
   const [premiumPfp, setPremiumPfp] = useState<string | null>(null);
 
@@ -228,13 +230,15 @@ function ShadowProfileContent() {
 
     switch (shadowTab) {
       case "top":
-        // Top 10 by bid
-        return [...stats.posts].sort((a, b) => Number(b.bid - a.bid)).slice(0, 10);
+        // Top 10 sorted by bid or position
+        if (topSortBy === "bid") {
+          return [...stats.posts].sort((a, b) => Number(b.bid - a.bid)).slice(0, 10);
+        } else {
+          // Sort by position (rank) - lower rank is better
+          return [...stats.posts].sort((a, b) => a.rank - b.rank).slice(0, 10);
+        }
       case "posts":
         // All posts sorted by timestamp
-        return [...stats.posts].sort((a, b) => b.timestamp - a.timestamp);
-      case "history":
-        // Same as posts for now (could show tx history in future)
         return [...stats.posts].sort((a, b) => b.timestamp - a.timestamp);
       default:
         return stats.posts;
@@ -298,6 +302,20 @@ function ShadowProfileContent() {
               </>
             )}
           </div>
+          {/* Send Message Button - only show if not own wallet */}
+          {walletPubkey && !isOwnWallet && (
+            <button
+              onClick={() => router.push(`/messages?contact=${encodeURIComponent(name)}&wallet=${walletPubkey}`)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
+                isPremium
+                  ? "bg-pink-500/20 text-pink-500 hover:bg-pink-500/30"
+                  : "bg-primary/20 text-primary hover:bg-primary/30"
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-sm font-medium">Message</span>
+            </button>
+          )}
         </div>
 
         {/* Shadow Stats */}
@@ -353,18 +371,34 @@ function ShadowProfileContent() {
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-primary rounded-full" />
           )}
         </button>
-        <button
-          onClick={() => setShadowTab("history")}
-          className={`flex-1 py-3 text-sm font-medium transition-colors relative ${
-            shadowTab === "history" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          history
-          {shadowTab === "history" && (
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-primary rounded-full" />
-          )}
-        </button>
       </div>
+
+      {/* Sort options for top 10 */}
+      {shadowTab === "top" && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border/50 bg-muted/30">
+          <span className="text-xs text-muted-foreground">sort by:</span>
+          <button
+            onClick={() => setTopSortBy("bid")}
+            className={`px-2 py-1 text-xs rounded transition-colors ${
+              topSortBy === "bid"
+                ? "bg-primary/20 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            bid
+          </button>
+          <button
+            onClick={() => setTopSortBy("position")}
+            className={`px-2 py-1 text-xs rounded transition-colors ${
+              topSortBy === "position"
+                ? "bg-primary/20 text-primary font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            position
+          </button>
+        </div>
+      )}
 
       {/* Shadow Posts */}
       <div>

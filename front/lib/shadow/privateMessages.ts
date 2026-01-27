@@ -339,31 +339,27 @@ export async function sendPrivateMessageOnChain(
   let mpcEphemeralPubkey: Uint8Array;
   let mpcNonceBytes: Uint8Array;
 
-  if (mxePublicKey) {
-    // Generate ephemeral keypair for MPC encryption
-    const mpcPrivateKey = x25519.utils.randomPrivateKey();
-    mpcEphemeralPubkey = x25519.getPublicKey(mpcPrivateKey);
-    const mpcSharedSecret = x25519.getSharedSecret(mpcPrivateKey, mxePublicKey);
-    const cipher = new RescueCipher(mpcSharedSecret);
-
-    // Hash sender and recipient pubkeys
-    const senderHash = await hashPublicKey(senderPubkey);
-    const recipientHash = await hashPublicKey(recipientPubkey);
-
-    // Create MPC nonce
-    mpcNonceBytes = new Uint8Array(16);
-    crypto.getRandomValues(mpcNonceBytes);
-
-    // Encrypt sender and recipient hashes with RescueCipher
-    encryptedSenderHash = encryptHashForMPC(senderHash, cipher, mpcNonceBytes);
-    encryptedRecipientHash = encryptHashForMPC(recipientHash, cipher, mpcNonceBytes);
-  } else {
-    // Fallback: no MPC encryption (cluster not available)
-    encryptedSenderHash = new Uint8Array(32);
-    encryptedRecipientHash = new Uint8Array(32);
-    mpcEphemeralPubkey = new Uint8Array(32);
-    mpcNonceBytes = new Uint8Array(16);
+  if (!mxePublicKey) {
+    throw new Error("Arcium MPC cluster not available. Cannot send encrypted message.");
   }
+
+  // Generate ephemeral keypair for MPC encryption
+  const mpcPrivateKey = x25519.utils.randomPrivateKey();
+  mpcEphemeralPubkey = x25519.getPublicKey(mpcPrivateKey);
+  const mpcSharedSecret = x25519.getSharedSecret(mpcPrivateKey, mxePublicKey);
+  const cipher = new RescueCipher(mpcSharedSecret);
+
+  // Hash sender and recipient pubkeys
+  const senderHash = await hashPublicKey(senderPubkey);
+  const recipientHash = await hashPublicKey(recipientPubkey);
+
+  // Create MPC nonce
+  mpcNonceBytes = new Uint8Array(16);
+  crypto.getRandomValues(mpcNonceBytes);
+
+  // Encrypt sender and recipient hashes with RescueCipher
+  encryptedSenderHash = encryptHashForMPC(senderHash, cipher, mpcNonceBytes);
+  encryptedRecipientHash = encryptHashForMPC(recipientHash, cipher, mpcNonceBytes);
 
   const discriminator = Buffer.from([241, 158, 126, 220, 116, 108, 212, 168]);
   const messageIndexBuffer = bigintToLeBytes(messageIndex, 8);

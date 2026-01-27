@@ -136,9 +136,12 @@ export function NddPurchaseModal({ isOpen, onClose, ndd, onSuccess }: NddPurchas
       setStep("success");
       onSuccess?.();
 
-      // Redirect to shadow profile page with refresh flag
+      // Redirect to shadow profile page with refresh flag after a short delay
       const finalNddName = (verifiedNdd || ndd).name;
-      router.push(`/shadow/${encodeURIComponent(finalNddName)}?refresh=1`);
+      setTimeout(() => {
+        onClose();
+        router.push(`/shadow/${encodeURIComponent(finalNddName)}?refresh=1`);
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "unknown error");
       setStep("error");

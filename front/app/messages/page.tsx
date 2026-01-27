@@ -26,7 +26,7 @@ import {
   Crown,
   ExternalLink,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Connection,
   PublicKey,
@@ -64,6 +64,7 @@ function formatTimeAgo(timestamp: number): string {
 
 function MessagesContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { selectedWallet, isUnlocked: shadowUnlocked, refreshBalances } = useShadow();
   const { user } = useAuth();
   const publicWallet = user?.wallet_address;
@@ -111,6 +112,28 @@ function MessagesContent() {
 
   // Premium status cache for contacts
   const [contactPremiumInfo, setContactPremiumInfo] = useState<Map<string, { isPremium: boolean; pfp: string | null }>>(new Map());
+
+  // Public wallet balance
+  const [publicWalletBalance, setPublicWalletBalance] = useState<number | null>(null);
+  const [isLoadingPublicBalance, setIsLoadingPublicBalance] = useState(false);
+
+  // Load public wallet balance
+  useEffect(() => {
+    const loadPublicBalance = async () => {
+      if (!publicWallet) return;
+      setIsLoadingPublicBalance(true);
+      try {
+        const connection = new Connection(RPC_URL, "confirmed");
+        const balance = await connection.getBalance(new PublicKey(publicWallet));
+        setPublicWalletBalance(balance / LAMPORTS_PER_SOL);
+      } catch (err) {
+        console.error("Failed to load public wallet balance:", err);
+      } finally {
+        setIsLoadingPublicBalance(false);
+      }
+    };
+    loadPublicBalance();
+  }, [publicWallet]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -193,6 +216,27 @@ function MessagesContent() {
     }
   }, [contacts, pendingSelectWallet, selectContact]);
 
+  // Handle URL params to add contact from profile page
+  useEffect(() => {
+    const contactName = searchParams.get("contact");
+    const walletAddress = searchParams.get("wallet");
+
+    if (contactName && walletAddress && isUnlocked) {
+      // Clear URL params
+      router.replace("/messages");
+
+      // Check if contact already exists
+      const existingContact = contacts.find(c => c.walletAddress === walletAddress);
+      if (existingContact) {
+        selectContact(existingContact);
+      } else {
+        // Add new contact and select it
+        addContact(walletAddress, contactName);
+        setPendingSelectWallet(walletAddress);
+      }
+    }
+  }, [searchParams, isUnlocked, contacts, router, selectContact, addContact]);
+
   // Load premium status for contacts
   useEffect(() => {
     const loadPremiumInfo = async () => {
@@ -258,7 +302,12 @@ function MessagesContent() {
       return;
     }
 
-    const fundAmount = amount || selectedFundingAmount;
+    const fundAmount = amount ?? selectedFundingAmount ?? 0.2;
+    if (!fundAmount || isNaN(fundAmount) || fundAmount <= 0) {
+      showToast("Invalid funding amount", "error");
+      return;
+    }
+
     setShowFundingModal(false);
     setIsFunding(true);
     setFundingStep("signing");
@@ -268,6 +317,15 @@ function MessagesContent() {
       const toPubkey = new PublicKey(shadowWalletAddress);
 
       const lamports = Math.floor(fundAmount * LAMPORTS_PER_SOL);
+
+      // Check public wallet balance before attempting transaction
+      const publicBalance = await connection.getBalance(fromPubkey);
+      const estimatedFee = 5000; // ~0.000005 SOL for tx fee
+      if (publicBalance < lamports + estimatedFee) {
+        const currentBalanceSol = (publicBalance / LAMPORTS_PER_SOL).toFixed(4);
+        const neededSol = ((lamports + estimatedFee) / LAMPORTS_PER_SOL).toFixed(4);
+        throw new Error(`Insufficient balance. You have ${currentBalanceSol} SOL but need ${neededSol} SOL`);
+      }
 
       const transaction = new Transaction().add(
         SystemProgram.transfer({
@@ -294,6 +352,10 @@ function MessagesContent() {
       setFundingStep("waiting");
       setFundsIncomingTimer(40); // Start 40 second countdown
 
+      // Update public wallet balance immediately
+      const newPublicBalance = await connection.getBalance(fromPubkey);
+      setPublicWalletBalance(newPublicBalance / LAMPORTS_PER_SOL);
+
       // Keep polling until React state reflects the new balance
       // The useEffect above will reset isFunding when hasEnoughSol becomes true
       const pollBalance = async () => {
@@ -306,7 +368,28 @@ function MessagesContent() {
 
     } catch (error) {
       console.error("Failed to fund wallet:", error);
-      const errorMsg = error instanceof Error ? error.message : "Failed to fund wallet";
+
+      // Parse wallet errors for better user feedback
+      let errorMsg = "Failed to fund wallet";
+      if (error instanceof Error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes("user rejected") || msg.includes("user denied") || msg.includes("cancelled") || msg.includes("user refused")) {
+          errorMsg = "Transaction cancelled";
+        } else if (msg.includes("insufficient") || msg.includes("not enough") || msg.includes("0x1") || msg.includes("custom program error: 0x1")) {
+          errorMsg = "Insufficient SOL balance in your wallet";
+        } else if (msg.includes("unexpected") || msg.includes("unknown")) {
+          errorMsg = "Wallet error - please try again";
+        } else if (msg.includes("timeout") || msg.includes("blockhash not found")) {
+          errorMsg = "Transaction timed out - please try again";
+        } else if (msg.includes("network") || msg.includes("connection") || msg.includes("failed to fetch")) {
+          errorMsg = "Network error - check your connection";
+        } else if (msg.includes("simulation failed") || msg.includes("transaction simulation")) {
+          errorMsg = "Transaction failed - insufficient SOL or network issue";
+        } else if (error.message && error.message.length < 100) {
+          errorMsg = error.message;
+        }
+      }
+
       showToast(errorMsg, "error");
       setIsFunding(false);
       setFundingStep("idle");
@@ -658,20 +741,38 @@ function MessagesContent() {
 
   // Main messaging UI - always show it, with optional status banner
   return (
-    <div className="border-x border-border min-h-screen flex">
+    <div className="border-x border-border h-screen flex overflow-hidden">
       {/* Left Panel - Contact List (1/3 width) */}
-      <div className="w-1/3 border-r border-border flex flex-col">
+      <div className="w-1/3 border-r border-border flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-3">
-          <h1 className="text-xl font-bold text-foreground">messages</h1>
+        <div className="flex-shrink-0 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-3">
+          <h1 className="text-xl font-bold text-primary">// messages</h1>
+          <p className="text-xs text-primary/70 mt-0.5">encrypted via Arcium</p>
           <div className="flex items-center gap-2 mt-1">
             <EyeOff className="w-3 h-3 text-primary" />
             <span className="text-xs text-muted-foreground font-mono">
               {shadowWalletAddress?.slice(0, 6)}...{shadowWalletAddress?.slice(-4)}
             </span>
           </div>
-          {/* Status banner */}
-          {fundsIncomingTimer !== null && (
+
+          {/* Shadow wallet balance */}
+          <div className="flex items-center gap-1.5 mt-2 px-2 py-1 rounded bg-primary/10 text-xs w-fit">
+            <EyeOff className="w-3 h-3 text-primary" />
+            <span className="text-primary font-mono">{walletBalanceSol.toFixed(4)} SOL</span>
+          </div>
+
+          {/* Status banners */}
+          {isFunding && (
+            <div className="flex items-center gap-2 mt-2 px-2 py-1.5 rounded bg-primary/10 text-xs text-primary border border-primary/20">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span className="flex-1">
+                {fundingStep === "signing" && "Sign transaction in wallet..."}
+                {fundingStep === "confirming" && "Confirming on Solana..."}
+                {fundingStep === "waiting" && "Waiting for balance update..."}
+              </span>
+            </div>
+          )}
+          {fundsIncomingTimer !== null && !isFunding && (
             <div className="flex items-center gap-2 mt-2 px-2 py-1.5 rounded bg-[#14F195]/10 text-xs text-[#14F195] border border-[#14F195]/20">
               <Loader2 className="w-3 h-3 animate-spin" />
               <span className="flex-1">Funds incoming...</span>
@@ -684,7 +785,7 @@ function MessagesContent() {
               <span>Setting up messaging...</span>
             </div>
           )}
-          {needsRegistration && !hasEnoughSol && (
+          {needsRegistration && !hasEnoughSol && !isFunding && (
             <div className="flex items-center gap-2 mt-2 px-2 py-1 rounded bg-amber-500/10 text-xs text-amber-500">
               <Wallet className="w-3 h-3" />
               <span>Fund wallet to enable sending ({walletBalanceSol.toFixed(4)} SOL)</span>
@@ -864,7 +965,7 @@ function MessagesContent() {
       </div>
 
       {/* Right Panel - Chat Area (2/3 width) */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         {selectedContact ? (
           (() => {
             const selectedPremiumInfo = contactPremiumInfo.get(selectedContact.walletAddress);
@@ -874,7 +975,7 @@ function MessagesContent() {
             return (
               <>
                 {/* Chat Header */}
-                <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-3">
+                <div className="flex-shrink-0 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div
@@ -957,7 +1058,7 @@ function MessagesContent() {
             </div>
 
             {/* Message Input */}
-            <div className="border-t border-border p-4">
+            <div className="flex-shrink-0 border-t border-border p-4">
               <div className="flex items-end gap-3">
                 <div className="flex-1 relative">
                   <textarea

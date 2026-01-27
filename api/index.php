@@ -233,18 +233,18 @@ elseif ($action === 'api-ndd-purchase') {
         exit;
     }
 
-    // Check if signature was already used (prevent replay attacks)
+    // Check if tx signature was already used (prevent replay attacks)
     // Create table if not exists
-    $db->exec("CREATE TABLE IF NOT EXISTS used_signatures (
+    $db->exec("CREATE TABLE IF NOT EXISTS used_tx_signatures (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        signature VARCHAR(128) NOT NULL UNIQUE,
+        tx_signature VARCHAR(128) NOT NULL UNIQUE,
         ndd_name VARCHAR(100) NOT NULL,
         shadow_pubkey VARCHAR(64) NOT NULL,
         created_at DATETIME NOT NULL,
-        INDEX idx_signature (signature)
+        INDEX idx_tx_signature (tx_signature)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-    $checkSig = $db->prepare("SELECT id FROM used_signatures WHERE signature = :sig");
+    $checkSig = $db->prepare("SELECT id FROM used_tx_signatures WHERE tx_signature = :sig");
     $checkSig->execute([':sig' => $signature]);
     if ($checkSig->fetch()) {
         echo json_encode(['success' => false, 'error' => 'Transaction already used']);
@@ -364,8 +364,8 @@ elseif ($action === 'api-ndd-purchase') {
         $shadowModel->setPremiumProfilePicture($shadowPubkey, $ndd['pfp']);
     }
 
-    // Save signature to prevent replay attacks
-    $saveSig = $db->prepare("INSERT INTO used_signatures (signature, ndd_name, shadow_pubkey, created_at) VALUES (:sig, :ndd, :pubkey, NOW())");
+    // Save tx signature to prevent replay attacks
+    $saveSig = $db->prepare("INSERT INTO used_tx_signatures (tx_signature, ndd_name, shadow_pubkey, created_at) VALUES (:sig, :ndd, :pubkey, NOW())");
     $saveSig->execute([':sig' => $signature, ':ndd' => $nddName, ':pubkey' => $shadowPubkey]);
 
     // Remove NDD from sale
