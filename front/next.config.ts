@@ -1,18 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Webpack fallback for Node.js modules not available in browser
+  // Turbopack resolve aliases for Node.js modules not available in browser
   // This is needed for @arcium-hq/client which imports 'fs'
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        path: false,
-        crypto: false,
-      };
-    }
-    return config;
+  turbopack: {
+    resolveAlias: {
+      fs: { browser: "./lib/empty-module.js" },
+      path: { browser: "./lib/empty-module.js" },
+      crypto: { browser: "./lib/empty-module.js" },
+    },
   },
 };
 
