@@ -30,15 +30,11 @@ export async function fundShadowWallet(
     const connection = new Connection(RPC_URL, 'confirmed');
     const lamports = Math.floor(amountInSol * LAMPORTS_PER_SOL);
 
-    // Add extra for tx fees + rent-exempt minimum (to avoid "insufficient funds for rent" error)
-    // Transaction fee: ~5000 lamports, Rent-exempt minimum: ~890880 lamports
-    const lamportsWithFees = lamports + 5000 + 900000; // ~0.000905 SOL extra
-
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: publicWallet.publicKey,
         toPubkey: shadowPubkey,
-        lamports: lamportsWithFees,
+        lamports,
       })
     );
 
