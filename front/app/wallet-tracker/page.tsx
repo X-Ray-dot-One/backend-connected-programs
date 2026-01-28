@@ -57,7 +57,7 @@ export default function WalletTrackerPage() {
     return () => clearInterval(interval);
   }, [network]);
 
-  const totalBalance = Array.from(balances.values()).reduce((sum, bal) => sum + (bal || 0), 0);
+  const totalBalance = Array.from(balances.values()).reduce((sum: number, bal) => sum + (bal || 0), 0);
 
   return (
     <div className="min-h-screen bg-background p-8">
