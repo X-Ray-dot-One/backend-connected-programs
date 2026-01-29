@@ -438,50 +438,67 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <Wallet className="w-5 h-5 text-primary" />
                   <p className="text-base font-semibold text-foreground">Connect Wallet</p>
                 </div>
-                <p className="text-xs text-muted-foreground mb-4">Select your wallet to get started</p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  {mobileAvailableWallets.length > 0
+                    ? "Select your wallet to get started"
+                    : "Open X-RAY in your wallet's browser to connect"}
+                </p>
                 <div className="space-y-2">
-                  {MOBILE_WALLETS.map((wallet) => {
-                    const isInstalled = mobileAvailableWallets.includes(wallet.id);
-                    return (
+                  {mobileAvailableWallets.length > 0 ? (
+                    // Wallets detected (in-app browser) - show connect buttons
+                    MOBILE_WALLETS.filter(w => mobileAvailableWallets.includes(w.id)).map((wallet) => (
                       <button
                         key={wallet.id}
-                        onClick={() => {
-                          if (isInstalled) {
-                            connectMobileWallet(wallet.id);
-                          } else {
-                            window.open(wallet.downloadUrl, "_blank");
-                          }
-                        }}
+                        onClick={() => connectMobileWallet(wallet.id)}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted/80 transition-colors border border-border"
                       >
                         <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-                          <img
-                            src={wallet.icon}
-                            alt={wallet.name}
-                            className="w-6 h-6 object-contain"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                          />
+                          <img src={wallet.icon} alt={wallet.name} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                         </div>
                         <div className="flex-1 text-left">
                           <p className="text-sm font-medium text-foreground">{wallet.name}</p>
-                          {isInstalled ? (
-                            <p className="text-xs text-green-500">Detected</p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">Tap to install</p>
-                          )}
+                          <p className="text-xs text-green-500">Detected - tap to connect</p>
                         </div>
-                        {isInstalled && <div className="w-2 h-2 rounded-full bg-green-500" />}
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
                       </button>
-                    );
-                  })}
+                    ))
+                  ) : (
+                    // No wallet detected (normal mobile browser) - show deep links to open in wallet browsers
+                    <>
+                      {[
+                        { id: "phantom", name: "Phantom", icon: "/phantom logo.png", getDeepLink: (url: string) => `https://phantom.app/ul/browse/${url}?ref=${url}`, recommended: true },
+                        { id: "solflare", name: "Solflare", icon: "https://solflare.com/favicon.ico", getDeepLink: (url: string) => `https://solflare.com/ul/v1/browse/${url}?ref=${url}` },
+                        { id: "backpack", name: "Backpack", icon: "https://backpack.app/favicon.ico", getDeepLink: () => `https://backpack.app/download` },
+                        { id: "coinbase", name: "Coinbase Wallet", icon: "https://www.coinbase.com/favicon.ico", getDeepLink: (url: string) => `https://go.cb-w.com/dapp?cb_url=${url}` },
+                        { id: "trust", name: "Trust Wallet", icon: "https://trustwallet.com/favicon.ico", getDeepLink: (url: string) => `https://link.trustwallet.com/open_url?coin_id=501&url=${url}` },
+                      ].map((wallet) => (
+                        <button
+                          key={wallet.id}
+                          onClick={() => {
+                            const currentUrl = encodeURIComponent(window.location.href);
+                            window.location.href = wallet.getDeepLink(currentUrl);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted/80 transition-colors ${
+                            wallet.recommended ? "border border-primary/30 bg-primary/5" : "border border-border"
+                          }`}
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                            <img src={wallet.icon} alt={wallet.name} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-medium text-foreground">Open in {wallet.name}</p>
+                            {wallet.recommended && <p className="text-xs text-primary">Recommended</p>}
+                          </div>
+                        </button>
+                      ))}
+                      <div className="mt-3 px-3 py-2 rounded-lg bg-muted/50">
+                        <p className="text-xs text-muted-foreground text-center">
+                          Don't have a wallet? <a href="https://phantom.app/download" target="_blank" rel="noopener" className="text-primary underline">Download Phantom</a>
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
-                {mobileAvailableWallets.length === 0 && (
-                  <div className="mt-3 px-3 py-2 rounded-lg bg-amber-500/10">
-                    <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                      No wallet detected. Install one to continue.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </>
