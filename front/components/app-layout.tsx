@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useState, useEffect, createContext, useContext, useCallback } from "react";
-import { ChevronDown, Check, Plus, User, Loader2, Crown, Home, Search, Bell, Mail, PenSquare, Sun, Moon } from "lucide-react";
+import { ChevronDown, Check, Plus, User, Loader2, Crown, Home, Search, Bell, Mail, PenSquare, Sun, Moon, Wallet } from "lucide-react";
 import { useMode } from "@/contexts/mode-context";
 import { useAuth } from "@/contexts/auth-context";
 import { useShadow } from "@/contexts/shadow-context";
@@ -54,7 +54,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { isShadowMode, toggleMode } = useMode();
-  const { user, isAuthenticated, showProfileSetup, closeProfileSetup, refreshUser } = useAuth();
+  const { user, isAuthenticated, login, showProfileSetup, closeProfileSetup, refreshUser } = useAuth();
   const {
     isUnlocked: isShadowUnlocked,
     isRestoring: isShadowRestoring,
@@ -70,6 +70,67 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [refreshCallbacks, setRefreshCallbacks] = useState<(() => void)[]>([]);
   const [premiumWallets, setPremiumWallets] = useState<Map<string, { isPremium: boolean; profilePicture: string | null }>>(new Map());
+  const [showMobileWalletMenu, setShowMobileWalletMenu] = useState(false);
+  const [mobileAvailableWallets, setMobileAvailableWallets] = useState<string[]>([]);
+  const [isMobileConnecting, setIsMobileConnecting] = useState(false);
+
+  // Detect available wallets for mobile
+  useEffect(() => {
+    const checkWallets = () => {
+      const wallets: string[] = [];
+      if (typeof window === "undefined") return;
+      if ((window as any).phantom?.solana || (window as any).solana?.isPhantom) wallets.push("phantom");
+      if ((window as any).solflare) wallets.push("solflare");
+      if ((window as any).backpack) wallets.push("backpack");
+      if ((window as any).coinbaseSolana) wallets.push("coinbase");
+      if ((window as any).trustwallet?.solana) wallets.push("trust");
+      setMobileAvailableWallets(wallets);
+    };
+    checkWallets();
+    const timeout = setTimeout(checkWallets, 500);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const MOBILE_WALLETS = [
+    { id: "phantom", name: "Phantom", icon: "/phantom logo.png", downloadUrl: "https://phantom.app/download" },
+    { id: "solflare", name: "Solflare", icon: "https://solflare.com/favicon.ico", downloadUrl: "https://solflare.com/download" },
+    { id: "backpack", name: "Backpack", icon: "https://backpack.app/favicon.ico", downloadUrl: "https://backpack.app/download" },
+    { id: "coinbase", name: "Coinbase Wallet", icon: "https://www.coinbase.com/favicon.ico", downloadUrl: "https://www.coinbase.com/wallet/downloads" },
+    { id: "trust", name: "Trust Wallet", icon: "https://trustwallet.com/favicon.ico", downloadUrl: "https://trustwallet.com/download" },
+  ];
+
+  const getMobileWallet = (type: string) => {
+    if (typeof window === "undefined") return null;
+    const w = window as any;
+    switch (type) {
+      case "phantom": return w.phantom?.solana || (w.solana?.isPhantom ? w.solana : null);
+      case "solflare": return w.solflare || null;
+      case "backpack": return w.backpack || null;
+      case "coinbase": return w.coinbaseSolana || null;
+      case "trust": return w.trustwallet?.solana || null;
+      default: return null;
+    }
+  };
+
+  const connectMobileWallet = async (walletType: string) => {
+    const wallet = getMobileWallet(walletType);
+    if (!wallet) {
+      const info = MOBILE_WALLETS.find(w => w.id === walletType);
+      if (info) window.open(info.downloadUrl, "_blank");
+      return;
+    }
+    setIsMobileConnecting(true);
+    setShowMobileWalletMenu(false);
+    try {
+      const response = await wallet.connect();
+      const publicKey = response.publicKey.toString();
+      await login(publicKey);
+    } catch (error: unknown) {
+      console.error("Wallet connection failed:", error);
+    } finally {
+      setIsMobileConnecting(false);
+    }
+  };
 
   // Load premium status for all shadow wallets
   useEffect(() => {
@@ -329,10 +390,16 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </>
               )}
               <button
-                onClick={isAuthenticated ? () => setIsPostModalOpen(true) : undefined}
-                className={`flex items-center justify-center w-10 h-10 rounded-full ${isAuthenticated ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                onClick={isAuthenticated ? () => setIsPostModalOpen(true) : () => setShowMobileWalletMenu(true)}
+                className={`flex items-center justify-center w-10 h-10 rounded-full ${isAuthenticated ? "bg-primary text-primary-foreground" : "bg-primary/80 text-primary-foreground animate-pulse"}`}
               >
-                <PenSquare className="w-5 h-5" />
+                {isMobileConnecting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : isAuthenticated ? (
+                  <PenSquare className="w-5 h-5" />
+                ) : (
+                  <Wallet className="w-5 h-5" />
+                )}
               </button>
             </div>
             {isShadowMode ? (
@@ -346,12 +413,79 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <span className="text-[10px]">notifs</span>
               </a>
             )}
-            <a href={isAuthenticated ? "/profile" : "#"} className={`flex flex-col items-center justify-center gap-0.5 ${isAuthenticated ? "text-foreground active:text-primary" : "text-muted-foreground/50"}`}>
-              <User className="w-5 h-5" />
-              <span className="text-[10px]">profile</span>
-            </a>
+            {isAuthenticated ? (
+              <a href="/profile" className="flex flex-col items-center justify-center gap-0.5 text-foreground active:text-primary">
+                <User className="w-5 h-5" />
+                <span className="text-[10px]">profile</span>
+              </a>
+            ) : (
+              <button onClick={() => setShowMobileWalletMenu(true)} className="flex flex-col items-center justify-center gap-0.5 text-muted-foreground active:text-primary">
+                <User className="w-5 h-5" />
+                <span className="text-[10px]">profile</span>
+              </button>
+            )}
           </div>
         </nav>
+
+        {/* Mobile Wallet Connection Menu */}
+        {showMobileWalletMenu && (
+          <>
+            <div className="md:hidden fixed inset-0 z-[60] bg-black/50" onClick={() => setShowMobileWalletMenu(false)} />
+            <div className="md:hidden fixed bottom-0 left-0 right-0 z-[61] bg-card border-t border-border rounded-t-2xl safe-area-bottom animate-in slide-in-from-bottom duration-200">
+              <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto mt-3" />
+              <div className="px-5 py-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Wallet className="w-5 h-5 text-primary" />
+                  <p className="text-base font-semibold text-foreground">Connect Wallet</p>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">Select your wallet to get started</p>
+                <div className="space-y-2">
+                  {MOBILE_WALLETS.map((wallet) => {
+                    const isInstalled = mobileAvailableWallets.includes(wallet.id);
+                    return (
+                      <button
+                        key={wallet.id}
+                        onClick={() => {
+                          if (isInstalled) {
+                            connectMobileWallet(wallet.id);
+                          } else {
+                            window.open(wallet.downloadUrl, "_blank");
+                          }
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted/80 transition-colors border border-border"
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                          <img
+                            src={wallet.icon}
+                            alt={wallet.name}
+                            className="w-6 h-6 object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-foreground">{wallet.name}</p>
+                          {isInstalled ? (
+                            <p className="text-xs text-green-500">Detected</p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Tap to install</p>
+                          )}
+                        </div>
+                        {isInstalled && <div className="w-2 h-2 rounded-full bg-green-500" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                {mobileAvailableWallets.length === 0 && (
+                  <div className="mt-3 px-3 py-2 rounded-lg bg-amber-500/10">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                      No wallet detected. Install one to continue.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Post Modal - rendered at root level for proper CSS inheritance */}
         <PostModal
