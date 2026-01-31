@@ -349,8 +349,8 @@ function ProfileContent() {
       showToast("Please select a valid image (JPEG, PNG, GIF, or WebP)", "error");
       return;
     }
-    if (file.size > 7 * 1024 * 1024) {
-      showToast("Profile picture must be less than 7MB", "error");
+    if (file.size > 20 * 1024 * 1024) {
+      showToast("Profile picture must be less than 20MB", "error");
       return;
     }
 
@@ -367,8 +367,8 @@ function ProfileContent() {
       showToast("Please select a valid image (JPEG, PNG, GIF, or WebP)", "error");
       return;
     }
-    if (file.size > 7 * 1024 * 1024) {
-      showToast("Banner must be less than 7MB", "error");
+    if (file.size > 20 * 1024 * 1024) {
+      showToast("Banner must be less than 20MB", "error");
       return;
     }
 
