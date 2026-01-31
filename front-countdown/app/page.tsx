@@ -95,29 +95,29 @@ export default function CountdownPage() {
         </p>
 
         {/* Countdown or Live */}
-        <div className="flex items-center gap-3 md:gap-5 mt-4">
+        <div className="flex items-center gap-1.5 sm:gap-3 md:gap-5 mt-4">
             {[
               { value: time.days, label: "days" },
               { value: time.hours, label: "hours" },
               { value: time.minutes, label: "min" },
               { value: time.seconds, label: "sec" },
             ].map((unit, i) => (
-              <div key={unit.label} className="flex items-center gap-3 md:gap-5">
+              <div key={unit.label} className="flex items-center gap-1.5 sm:gap-3 md:gap-5">
                 <div className="flex flex-col items-center">
                   <div className="relative group">
-                    <div className="w-[72px] h-[88px] md:w-[100px] md:h-[120px] bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-2xl flex items-center justify-center">
-                      <span className="text-3xl md:text-5xl font-mono font-bold tabular-nums bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent">
+                    <div className="w-[56px] h-[70px] sm:w-[72px] sm:h-[88px] md:w-[100px] md:h-[120px] bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-xl sm:rounded-2xl flex items-center justify-center">
+                      <span className="text-2xl sm:text-3xl md:text-5xl font-mono font-bold tabular-nums bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent">
                         {String(unit.value).padStart(2, "0")}
                       </span>
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-b from-purple-500/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-purple-500/5 to-transparent rounded-xl sm:rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <span className="text-[10px] md:text-xs text-white/25 mt-2 uppercase tracking-[0.2em]">
+                  <span className="text-[8px] sm:text-[10px] md:text-xs text-white/25 mt-1.5 sm:mt-2 uppercase tracking-[0.15em] sm:tracking-[0.2em]">
                     {unit.label}
                   </span>
                 </div>
                 {i < 3 && (
-                  <span className="text-2xl md:text-3xl text-white/10 font-light -mt-6 md:-mt-8">:</span>
+                  <span className="text-lg sm:text-2xl md:text-3xl text-white/10 font-light -mt-4 sm:-mt-6 md:-mt-8">:</span>
                 )}
               </div>
             ))}
@@ -141,6 +141,15 @@ export default function CountdownPage() {
             className="text-sm text-white/20 hover:text-white/50 transition-colors"
           >
             docs
+          </a>
+          <span className="text-white/10">·</span>
+          <a
+            href="https://linktr.ee/XrayOne"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-white/20 hover:text-white/50 transition-colors"
+          >
+            linktree
           </a>
         </div>
 
