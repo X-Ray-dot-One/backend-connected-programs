@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, TrendingUp, Flame, Globe, Loader2, Crown } from "lucide-react";
+import { Search, Flame, Globe, Loader2, Crown } from "lucide-react";
 import { useMode } from "@/contexts/mode-context";
 import { useSearchModal } from "./app-layout";
 import { getTop20Posts, TopPost } from "@/lib/shadow/topPosts";
@@ -11,46 +11,6 @@ import { getImageUrl } from "@/lib/utils";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { EyeOff } from "lucide-react";
 import { NddPurchaseModal } from "./ndd-purchase-modal";
-
-// Mock data - waiting for API endpoints
-const trendingTopics = [
-  { tag: "Solana", posts: "12.4K" },
-  { tag: "DeFi", posts: "8.2K" },
-  { tag: "NFTs", posts: "5.7K" },
-  { tag: "Airdrop", posts: "4.1K" },
-  { tag: "Web3", posts: "3.8K" },
-];
-
-const suggestedUsers = [
-  {
-    id: 1,
-    username: "solana_dev",
-    handle: "@solana_dev",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=solana",
-    bio: "Building the future of finance",
-  },
-  {
-    id: 2,
-    username: "crypto_whale",
-    handle: "@crypto_whale",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=whale",
-    bio: "On-chain analyst",
-  },
-  {
-    id: 3,
-    username: "defi_queen",
-    handle: "@defi_queen",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=queen",
-    bio: "Yield farming expert",
-  },
-  {
-    id: 4,
-    username: "nft_collector",
-    handle: "@nft_collector",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=nft",
-    bio: "Digital art enthusiast",
-  },
-];
 
 
 // Helper to format time ago
@@ -86,7 +46,6 @@ export function RightPanel() {
   const router = useRouter();
   const { isShadowMode } = useMode();
   const { openSearchModal } = useSearchModal();
-  const [followingIds, setFollowingIds] = useState<Set<number>>(new Set());
   const [topPosts, setTopPosts] = useState<TopPostWithName[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [nddList, setNddList] = useState<PremiumNdd[]>([]);
@@ -154,18 +113,6 @@ export function RightPanel() {
         });
     }
   }, [isShadowMode]);
-
-  const handleFollow = (userId: number) => {
-    setFollowingIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(userId)) {
-        newSet.delete(userId);
-      } else {
-        newSet.add(userId);
-      }
-      return newSet;
-    });
-  };
 
   return (
     <aside className="fixed right-0 top-0 w-96 h-screen p-4 flex flex-col gap-4 overflow-y-auto bg-background border-l border-border">
@@ -242,19 +189,9 @@ export function RightPanel() {
               ))
             )
           ) : (
-            trendingTopics.map((topic) => (
-              <a
-                key={topic.tag}
-                href={`/explore?tag=${topic.tag}`}
-                className="flex items-center justify-between px-4 py-3 hover:bg-muted transition-colors cursor-pointer"
-              >
-                <div>
-                  <p className="font-medium text-foreground">#{topic.tag}</p>
-                  <p className="text-xs text-muted-foreground">{topic.posts} posts</p>
-                </div>
-                <TrendingUp className="w-4 h-4 text-muted-foreground" />
-              </a>
-            ))
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+              coming soon
+            </div>
           )}
         </div>
       </div>
@@ -311,36 +248,9 @@ export function RightPanel() {
               ))
             )
           ) : (
-            suggestedUsers.map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors cursor-pointer"
-                onClick={() => window.location.href = `/user/${user.username}`}
-              >
-                <img
-                  src={user.avatar}
-                  alt={user.username}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground truncate">{user.username}</p>
-                  <p className="text-xs text-muted-foreground truncate">{user.bio}</p>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleFollow(user.id);
-                  }}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                    followingIds.has(user.id)
-                      ? "bg-muted text-foreground hover:bg-muted/80"
-                      : "bg-primary text-primary-foreground hover:bg-primary/90"
-                  }`}
-                >
-                  {followingIds.has(user.id) ? "following" : "follow"}
-                </button>
-              </div>
-            ))
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+              coming soon
+            </div>
           )}
         </div>
         <a

@@ -331,7 +331,7 @@ function UserProfileContent() {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </a>
           <div>
-            <h1 className="text-xl font-bold text-foreground">{displayName}</h1>
+            <h1 className="text-xl font-bold text-foreground">{profileUser.username || "Profile"}</h1>
             <p className="text-sm text-muted-foreground">{stats.posts} posts</p>
           </div>
         </div>
@@ -348,55 +348,53 @@ function UserProfileContent() {
 
       {/* Profile Info */}
       <div className="px-4 pb-4 relative">
-        {/* Avatar */}
-        <div className="absolute -top-12 left-4">
+        {/* Avatar + Actions row */}
+        <div className="flex items-end justify-between -mt-12">
           <img
             src={avatarUrl}
             alt={displayName}
             className="w-24 h-24 rounded-full border-4 border-background object-cover"
           />
-        </div>
-
-        {/* Follow Button */}
-        <div className="flex justify-end pt-3">
-          {isOwnProfile ? (
-            <a
-              href="/profile"
-              className="flex items-center gap-2 px-4 py-2 rounded-full border border-border text-foreground hover:bg-muted transition-colors"
-            >
-              <span className="text-sm">Edit Profile</span>
-            </a>
-          ) : isAuthenticated ? (
-            <button
-              onClick={handleFollow}
-              disabled={isFollowLoading}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-colors ${
-                isFollowing
-                  ? "border border-border text-foreground hover:border-red-500 hover:text-red-500 hover:bg-red-500/10"
-                  : "bg-foreground text-background hover:bg-foreground/90"
-              }`}
-            >
-              {isFollowLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : isFollowing ? (
-                <>
-                  <UserMinus className="w-4 h-4" />
-                  <span>Following</span>
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  <span>Follow</span>
-                </>
-              )}
-            </button>
-          ) : null}
+          <div className="mb-1">
+            {isOwnProfile ? (
+              <a
+                href="/profile"
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-border text-foreground hover:bg-muted transition-colors"
+              >
+                <span className="text-sm">Edit Profile</span>
+              </a>
+            ) : isAuthenticated ? (
+              <button
+                onClick={handleFollow}
+                disabled={isFollowLoading}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-colors ${
+                  isFollowing
+                    ? "border border-border text-foreground hover:border-red-500 hover:text-red-500 hover:bg-red-500/10"
+                    : "bg-foreground text-background hover:bg-foreground/90"
+                }`}
+              >
+                {isFollowLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : isFollowing ? (
+                  <>
+                    <UserMinus className="w-4 h-4" />
+                    <span>Following</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    <span>Follow</span>
+                  </>
+                )}
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {/* Name & Handle */}
-        <div className="mt-4">
+        <div className="mt-3">
           <h1 className="text-xl font-bold text-foreground">{displayName}</h1>
-          <p className="text-muted-foreground">{handle}</p>
+          <p className="text-muted-foreground">{truncatedWallet}</p>
         </div>
 
         {/* Bio */}

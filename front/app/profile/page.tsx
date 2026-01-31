@@ -658,10 +658,14 @@ function ProfileContent() {
         {/* Selected Wallet Info */}
         {selectedWallet ? (
           <>
-            {/* Shadow Profile Header */}
-            <div className="px-6 py-6 border-b border-border">
-              <div className="flex items-center gap-4">
-                <div className={`w-20 h-20 rounded-full flex items-center justify-center overflow-hidden ${
+            {/* Banner */}
+            <div className={`h-32 relative ${isSelectedWalletPremium ? "bg-gradient-to-r from-pink-500/30 to-purple-500/30" : "bg-gradient-to-r from-primary/20 to-primary/10"}`} />
+
+            {/* Profile Info */}
+            <div className="px-4 pb-4 relative">
+              {/* Avatar + Actions row */}
+              <div className="flex items-end justify-between -mt-12">
+                <div className={`w-24 h-24 rounded-full border-4 border-background flex items-center justify-center overflow-hidden ${
                   isSelectedWalletPremium ? "bg-pink-500/20" : "bg-primary/20"
                 }`}>
                   {selectedWalletPremiumPfp ? (
@@ -671,39 +675,37 @@ function ProfileContent() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold ${
-                      isSelectedWalletPremium ? "bg-pink-500/30 text-pink-500" : "bg-primary/30 text-primary"
-                    }`}>
+                    <span className={`text-3xl font-bold ${isSelectedWalletPremium ? "text-pink-500" : "text-primary"}`}>
                       {selectedWallet.name.charAt(0).toUpperCase()}
-                    </div>
+                    </span>
                   )}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h1 className={`text-2xl font-bold ${isSelectedWalletPremium ? "text-pink-500" : "text-primary"}`}>{selectedWallet.name}</h1>
-                    {isSelectedWalletPremium && (
-                      <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-pink-500/20 text-pink-500 rounded-full">
-                        <Crown className="w-3 h-3" />
-                        premium
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground font-mono">
-                    {selectedWallet.publicKey.slice(0, 8)}...{selectedWallet.publicKey.slice(-8)}
-                  </p>
-                  <a
-                    href={`https://explorer.solana.com/address/${selectedWallet.publicKey}?cluster=devnet`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
-                  >
-                    View on Explorer <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
+                {isSelectedWalletPremium && (
+                  <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-pink-500/20 text-pink-500 rounded-full mb-1">
+                    <Crown className="w-3 h-3" />
+                    premium
+                  </span>
+                )}
+              </div>
+
+              {/* Name & Handle */}
+              <div className="mt-3">
+                <h1 className={`text-xl font-bold ${isSelectedWalletPremium ? "text-pink-500" : "text-primary"}`}>{selectedWallet.name}</h1>
+                <p className="text-sm text-muted-foreground font-mono">
+                  {selectedWallet.publicKey.slice(0, 8)}...{selectedWallet.publicKey.slice(-8)}
+                </p>
+                <a
+                  href={`https://explorer.solana.com/address/${selectedWallet.publicKey}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
+                >
+                  View on Explorer <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
 
               {/* Shadow Stats */}
-              <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="grid grid-cols-3 gap-4 mt-4">
                 <div className="bg-primary/10 rounded-lg p-3 text-center">
                   <p className="text-2xl font-bold text-primary">{shadowStats?.totalPosts || 0}</p>
                   <p className="text-xs text-muted-foreground">total posts</p>
@@ -719,7 +721,7 @@ function ProfileContent() {
               </div>
 
               {/* Total spent */}
-              <div className="mt-5 flex items-center gap-3">
+              <div className="mt-4 flex items-center gap-3">
                 <span className="text-xs text-muted-foreground uppercase tracking-wider">total spent</span>
                 <span className="text-xl font-bold text-amber-500">
                   {shadowStats ? formatSol(shadowStats.totalSpent) : "0"} SOL

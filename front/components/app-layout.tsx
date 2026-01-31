@@ -78,6 +78,19 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [showMobileWalletMenu, setShowMobileWalletMenu] = useState(false);
   const [mobileAvailableWallets, setMobileAvailableWallets] = useState<string[]>([]);
   const [isMobileConnecting, setIsMobileConnecting] = useState(false);
+  const [showBetaDisclaimer, setShowBetaDisclaimer] = useState(false);
+
+  // Show beta disclaimer on first visit
+  useEffect(() => {
+    if (typeof window !== "undefined" && !localStorage.getItem("xray_beta_accepted")) {
+      setShowBetaDisclaimer(true);
+    }
+  }, []);
+
+  const acceptBeta = () => {
+    localStorage.setItem("xray_beta_accepted", "1");
+    setShowBetaDisclaimer(false);
+  };
 
   // Detect available wallets for mobile
   useEffect(() => {
@@ -594,6 +607,62 @@ export function AppLayout({ children }: AppLayoutProps) {
           isOpen={isSearchOpen}
           onClose={() => setIsSearchOpen(false)}
         />
+
+        {/* Beta Disclaimer Modal */}
+        {showBetaDisclaimer && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md">
+            <div className="bg-card border border-border rounded-2xl max-w-md w-full mx-4 overflow-hidden shadow-2xl">
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4 text-center">
+                <div className="inline-flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                    <img src="/public-logo.png" alt="X-RAY" className="w-full h-full object-contain scale-[1.8]" />
+                  </div>
+                  <h2 className="text-xl font-bold text-foreground">Welcome to X-RAY</h2>
+                </div>
+                <div>
+                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/20">EARLY BETA</span>
+                </div>
+              </div>
+
+              <div className="px-6 pb-6 space-y-3">
+                {/* Discord */}
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40">
+                  <span className="text-lg mt-0.5">💬</span>
+                  <p className="text-sm text-muted-foreground">Report bugs & share feedback on <a href="https://discord.gg/HBUWsX47Jn" target="_blank" rel="noopener" className="text-primary font-medium hover:underline">Discord</a></p>
+                </div>
+
+                {/* Devnet */}
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40">
+                  <span className="text-lg mt-0.5">⚡</span>
+                  <div className="text-sm text-muted-foreground">
+                    <p>Running on <span className="text-foreground font-medium">Solana Devnet</span>, set your wallet to Devnet mode</p>
+                    <p className="mt-1">Get free SOL at <a href="https://faucet.solana.com/" target="_blank" rel="noopener" className="text-primary font-medium hover:underline">faucet.solana.com</a></p>
+                  </div>
+                </div>
+
+                {/* Privacy Cash */}
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40">
+                  <img src="https://privacycash.vip/logo.png" alt="Privacy Cash" className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-muted-foreground"><span className="text-foreground font-medium">Privacy Cash</span> is not available on Devnet, wallet funding is not private in this version</p>
+                </div>
+
+                {/* Content creation */}
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40">
+                  <span className="text-lg mt-0.5">🎨</span>
+                  <p className="text-sm text-muted-foreground">Posting content about X-RAY is greatly appreciated! Share it in <a href="https://discord.gg/HBUWsX47Jn" target="_blank" rel="noopener" className="text-primary font-medium hover:underline">#post-contents-🖌️</a> on Discord</p>
+                </div>
+
+                <button
+                  onClick={acceptBeta}
+                  className="w-full mt-2 px-4 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  I understand, let me in
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </SearchModalContext.Provider>
     </PostModalContext.Provider>
