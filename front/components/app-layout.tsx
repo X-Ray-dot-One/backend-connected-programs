@@ -151,8 +151,17 @@ export function AppLayout({ children }: AppLayoutProps) {
     setIsMobileConnecting(true);
     setShowMobileWalletMenu(false);
     try {
-      const response = await wallet.connect();
-      const publicKey = response.publicKey.toString();
+      let publicKey: string;
+      if (wallet.publicKey) {
+        // Already connected (Phantom auto-connect)
+        publicKey = wallet.publicKey.toString();
+      } else {
+        const connectTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Connection timeout")), 15000)
+        );
+        const response = await Promise.race([wallet.connect(), connectTimeout]) as { publicKey: { toString(): string } };
+        publicKey = response.publicKey.toString();
+      }
       await login(publicKey);
     } catch (error: unknown) {
       console.error("Wallet connection failed:", error);
@@ -333,7 +342,8 @@ export function AppLayout({ children }: AppLayoutProps) {
           <RightPanel />
         </div>
 
-        {/* Mobile Mode Toggle - fixed bottom-right */}
+        {/* Mobile Mode Toggle - fixed bottom-right (hidden on messages page) */}
+        {pathname !== "/messages" && (
         <button
           onClick={toggleMode}
           className={`md:hidden fixed bottom-[5.5rem] right-4 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-colors ${
@@ -344,9 +354,10 @@ export function AppLayout({ children }: AppLayoutProps) {
         >
           {isShadowMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
         </button>
+        )}
 
-        {/* Mobile Identity Selector - floating above nav bar in shadow mode */}
-        {isShadowMode && isAuthenticated && (
+        {/* Mobile Identity Selector - floating above nav bar in shadow mode (hidden on messages page) */}
+        {isShadowMode && isAuthenticated && pathname !== "/messages" && (
           <div className="md:hidden fixed bottom-[5rem] left-1/2 -translate-x-1/2 z-50">
             {!isShadowUnlocked ? (
               /* Not unlocked - show sign prompt */

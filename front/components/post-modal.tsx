@@ -773,6 +773,7 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
       }
 
       // Reset form
+      setIsIdentityDropdownOpen(false);
       setContent("");
       setTargetUser("");
       setTargetQuery("");
@@ -1023,6 +1024,8 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
                       })()}
 
                       {isIdentityDropdownOpen && shadowWallets.length > 0 && (
+                        <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsIdentityDropdownOpen(false)} />
                         <div className="absolute left-0 top-full mt-1 w-48 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
                           {shadowWallets.map((wallet, index) => {
                             const isPremium = premiumWallets.get(wallet.publicKey)?.isPremium || false;
@@ -1052,6 +1055,7 @@ export function PostModal({ isOpen, onClose, userAvatar, username, isShadowMode 
                             );
                           })}
                         </div>
+                        </>
                       )}
                     </div>
 

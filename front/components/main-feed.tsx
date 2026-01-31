@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Heart,
@@ -21,7 +21,7 @@ import { usePostModal } from "@/components/app-layout";
 import { useShadow } from "@/contexts/shadow-context";
 import * as api from "@/lib/api";
 import { getImageUrl } from "@/lib/utils";
-import { getTop20Posts, getRecentPosts, type TopPost } from "@/lib/shadow/topPosts";
+import { getTop20Posts, getRecentPosts, invalidatePostsCache, type TopPost } from "@/lib/shadow/topPosts";
 import { formatSol } from "@/lib/shadow/postService";
 import { extractXUsername, extractXrayUsername } from "@/lib/shadow/targetProfile";
 import { NddPurchaseModal } from "@/components/ndd-purchase-modal";
@@ -393,6 +393,15 @@ export function MainFeed() {
   const [selectedNdd, setSelectedNdd] = useState<PremiumNdd | null>(null);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
 
+  // Pull-to-refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const pullDistanceRef = useRef(0);
+  const touchStartY = useRef(0);
+  const isPulling = useRef(false);
+
+  const PULL_THRESHOLD = 80;
+
   const fetchPosts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -463,6 +472,63 @@ export function MainFeed() {
     registerRefreshCallback(fetchPosts);
   }, [registerRefreshCallback, fetchPosts]);
 
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    if (isShadowMode) {
+      invalidatePostsCache();
+    }
+    await fetchPosts();
+    setIsRefreshing(false);
+  }, [isShadowMode, fetchPosts]);
+
+  // Touch handlers for pull-to-refresh
+  useEffect(() => {
+    const mainEl = document.querySelector("main");
+    if (!mainEl) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (mainEl.scrollTop <= 0) {
+        touchStartY.current = e.touches[0].clientY;
+        isPulling.current = true;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isPulling.current) return;
+      const dy = e.touches[0].clientY - touchStartY.current;
+      if (dy > 0 && mainEl.scrollTop <= 0) {
+        const dist = Math.min(dy * 0.5, PULL_THRESHOLD * 1.5);
+        pullDistanceRef.current = dist;
+        setPullDistance(dist);
+        if (dy > 10) e.preventDefault();
+      } else {
+        isPulling.current = false;
+        pullDistanceRef.current = 0;
+        setPullDistance(0);
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (isPulling.current && pullDistanceRef.current >= PULL_THRESHOLD && !isRefreshing) {
+        handleRefresh();
+      }
+      isPulling.current = false;
+      pullDistanceRef.current = 0;
+      setPullDistance(0);
+    };
+
+    mainEl.addEventListener("touchstart", onTouchStart, { passive: true });
+    mainEl.addEventListener("touchmove", onTouchMove, { passive: false });
+    mainEl.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      mainEl.removeEventListener("touchstart", onTouchStart);
+      mainEl.removeEventListener("touchmove", onTouchMove);
+      mainEl.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [isRefreshing, handleRefresh]);
+
   // Fetch NDD list for mobile inline recommendations (shadow mode only)
   useEffect(() => {
     if (isShadowMode) {
@@ -522,6 +588,17 @@ export function MainFeed() {
 
   return (
     <div className="flex-1 xl:border-r border-border">
+      {/* Pull-to-refresh indicator */}
+      <div
+        className="flex items-center justify-center overflow-hidden transition-all duration-200 md:hidden"
+        style={{ height: isRefreshing ? 48 : pullDistance > 0 ? pullDistance : 0 }}
+      >
+        <Loader2
+          className={`w-5 h-5 text-primary transition-transform ${isRefreshing ? "animate-spin" : ""}`}
+          style={{ opacity: Math.min(pullDistance / PULL_THRESHOLD, 1), transform: `rotate(${pullDistance * 3}deg)` }}
+        />
+      </div>
+
       {/* Header - sticky on desktop, scrolls on mobile */}
       <div className="md:sticky md:top-0 md:z-10 px-4 py-4 border-b border-border bg-background/80 backdrop-blur-sm">
         <h1 className="text-xl font-bold text-primary">
