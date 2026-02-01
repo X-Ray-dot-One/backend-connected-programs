@@ -465,69 +465,69 @@ export function ProfileSetupModal({
     return (
       <>
         <div className="fixed inset-0 z-[9999] bg-black/90" />
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
-          <div className="bg-background border border-border rounded-2xl w-full max-w-md shadow-xl overflow-y-auto max-h-[90vh] pointer-events-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 pointer-events-none">
+          <div className="bg-background border border-border rounded-2xl w-full max-w-md shadow-xl overflow-y-auto max-h-[85vh] pointer-events-auto">
 
             {/* Mock post modal header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border opacity-30">
-              <div className="p-1.5 rounded-full bg-muted"><span className="text-foreground text-xs">X</span></div>
-              <div className="px-4 py-1.5 rounded-full bg-primary/50 text-primary-foreground/50 text-sm font-medium">shadow post</div>
+            <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-b border-border opacity-30">
+              <div className="p-1 sm:p-1.5 rounded-full bg-muted"><span className="text-foreground text-xs">X</span></div>
+              <div className="px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-primary/50 text-primary-foreground/50 text-xs sm:text-sm font-medium">shadow post</div>
             </div>
 
             {/* Section 1: Identity */}
-            <div className={`px-4 py-2 border-b border-border bg-primary/5 ${sectionStyle(0)}`}>
-              <div className="flex items-center gap-2">
-                <EyeOff className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-sm text-muted-foreground">post as</span>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10">
-                  <span className="text-sm font-medium text-primary">shadow_anon42</span>
+            <div className={`px-3 sm:px-4 py-1.5 sm:py-2 border-b border-border bg-primary/5 ${sectionStyle(0)}`}>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
+                <span className="text-xs sm:text-sm text-muted-foreground">post as</span>
+                <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg bg-primary/10">
+                  <span className="text-xs sm:text-sm font-medium text-primary">shadow_anon42</span>
                 </div>
-                <span className="text-xs text-muted-foreground">0.50 SOL</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground">0.50 SOL</span>
               </div>
             </div>
 
             {/* Section 2: Target */}
-            <div className={`px-4 py-3 border-b border-border ${sectionStyle(1)}`}>
-              <div className="flex items-center gap-2 mb-3">
-                <Target className="w-4 h-4 text-primary" />
-                <span className="text-sm text-muted-foreground">who are you talking about?</span>
+            <div className={`px-3 sm:px-4 py-2 sm:py-3 border-b border-border ${sectionStyle(1)}`}>
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                <span className="text-xs sm:text-sm text-muted-foreground">who are you talking about?</span>
               </div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-primary text-primary-foreground">
-                  <EyeOff className="w-3.5 h-3.5" /> x-ray
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm bg-primary text-primary-foreground">
+                  <EyeOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> x-ray
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-muted text-muted-foreground">
+                <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm bg-muted text-muted-foreground">
                   X
                 </div>
               </div>
               <div className="flex gap-2">
-                <div className="flex-1 flex items-center rounded-lg bg-muted px-3 py-2">
-                  <span className="text-sm text-primary font-medium">@</span>
-                  <span className="text-sm text-muted-foreground ml-1">username</span>
+                <div className="flex-1 flex items-center rounded-lg bg-muted px-2 sm:px-3 py-1.5 sm:py-2">
+                  <span className="text-xs sm:text-sm text-primary font-medium">@</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground ml-1">username</span>
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm flex items-center gap-1.5">
+                <div className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-primary text-primary-foreground text-xs sm:text-sm flex items-center gap-1">
                   <span>lock</span>
                 </div>
               </div>
             </div>
 
             {/* Section 3: Boost */}
-            <div className={`px-4 py-3 border-b border-border ${sectionStyle(2)}`}>
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4 text-amber-500" />
-                <span className="text-sm text-muted-foreground">boost</span>
+            <div className={`px-3 sm:px-4 py-2 sm:py-3 border-b border-border ${sectionStyle(2)}`}>
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
+                <span className="text-xs sm:text-sm text-muted-foreground">boost</span>
               </div>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-                  <span className="text-base font-medium text-primary">0.05</span>
-                  <span className="text-sm font-medium text-muted-foreground">SOL</span>
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-muted rounded-lg px-2 sm:px-3 py-1.5 sm:py-2">
+                  <span className="text-sm sm:text-base font-medium text-primary">0.05</span>
+                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">SOL</span>
                 </div>
                 <span className="text-muted-foreground">=</span>
-                <div className="flex items-center gap-1 rounded-lg px-3 py-2 border bg-amber-400/20 border-amber-400">
-                  <span className="text-base font-bold text-amber-500">#1</span>
+                <div className="flex items-center gap-1 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 border bg-amber-400/20 border-amber-400">
+                  <span className="text-sm sm:text-base font-bold text-amber-500">#1</span>
                 </div>
               </div>
-              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+              <div className="w-full h-1.5 sm:h-2 bg-muted rounded-full overflow-hidden">
                 <div className="w-1/4 h-full bg-primary rounded-full" />
               </div>
               <div className="flex justify-between mt-1">
@@ -537,46 +537,46 @@ export function ProfileSetupModal({
             </div>
 
             {/* Section 4: Content */}
-            <div className={`p-4 ${sectionStyle(3)}`}>
-              <div className="min-h-[60px]">
-                <p className="text-lg text-muted-foreground italic">What&apos;s happening?</p>
+            <div className={`p-3 sm:p-4 ${sectionStyle(3)}`}>
+              <div className="min-h-[40px] sm:min-h-[60px]">
+                <p className="text-base sm:text-lg text-muted-foreground italic">What&apos;s happening?</p>
               </div>
             </div>
 
             {/* Explanation card + navigation */}
-            <div className="px-4 py-4 border-t border-primary/30 bg-primary/5">
-              <div className="flex items-center gap-2 mb-2">
-                {currentPostExplain.icon === "eyeoff" && <EyeOff className="w-5 h-5 text-primary" />}
-                {currentPostExplain.icon === "target" && <Target className="w-5 h-5 text-primary" />}
-                {currentPostExplain.icon === "send" && <Send className="w-5 h-5 text-primary" />}
-                {currentPostExplain.icon === "coins" && <Coins className="w-5 h-5 text-amber-500" />}
-                <h3 className="font-bold text-foreground text-sm">{currentPostExplain.title}</h3>
+            <div className="px-3 sm:px-4 py-3 sm:py-4 border-t border-primary/30 bg-primary/5">
+              <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                {currentPostExplain.icon === "eyeoff" && <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />}
+                {currentPostExplain.icon === "target" && <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />}
+                {currentPostExplain.icon === "send" && <Send className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />}
+                {currentPostExplain.icon === "coins" && <Coins className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />}
+                <h3 className="font-bold text-foreground text-xs sm:text-sm">{currentPostExplain.title}</h3>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">{currentPostExplain.text}</p>
-              <div className="flex gap-1.5 mb-4">
+              <p className="text-[11px] sm:text-xs text-muted-foreground mb-2 sm:mb-3">{currentPostExplain.text}</p>
+              <div className="flex gap-1.5 mb-3 sm:mb-4">
                 {postExplanations.map((_, i) => (
                   <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= postExplainStep ? "bg-primary" : "bg-muted"}`} />
                 ))}
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3">
                 <button
                   onClick={() => {
                     if (postExplainStep === 0) setShadowStep("intro-post");
                     else setPostExplainStep(prev => prev - 1);
                   }}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-foreground hover:bg-muted transition-colors font-medium text-sm"
+                  className="flex-1 py-2 sm:py-2.5 rounded-xl border border-border text-foreground hover:bg-muted transition-colors font-medium text-xs sm:text-sm"
                 >
                   Back
                 </button>
                 <button
                   onClick={handlePostNext}
                   disabled={isSaving}
-                  className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  className="flex-1 py-2 sm:py-2.5 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50"
                 >
                   {isLastPostExplain ? (
                     isSaving ? (<><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>) : "Let's go!"
                   ) : (
-                    <>Next <ArrowRight className="w-4 h-4" /></>
+                    <>Next <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></>
                   )}
                 </button>
               </div>
