@@ -255,7 +255,7 @@ function PostDetailContent() {
                 {post.username || "Anonymous"}
               </a>
               <a href={`/user/${post.username}`} className="text-muted-foreground hover:underline">
-                @{post.username || "anon"}
+                @{post.wallet_address ? `${post.wallet_address.slice(0, 6)}...${post.wallet_address.slice(-4)}` : post.username || "anon"}
               </a>
             </div>
           </div>
@@ -267,8 +267,11 @@ function PostDetailContent() {
             {renderContentWithMentions(post.content)}
           </p>
           {post.image && (
-            <div className="mt-3 rounded-xl overflow-hidden border border-border">
-              <img src={getImageUrl(post.image, "")} alt="" className="w-full max-h-[500px] object-cover" />
+            <div
+              className="mt-3 rounded-xl overflow-hidden border border-border cursor-pointer"
+              onClick={() => window.open(getImageUrl(post.image!, ""), "_blank")}
+            >
+              <img src={getImageUrl(post.image, "")} alt="" className="w-full max-h-[500px] object-cover hover:opacity-90 transition-opacity" />
             </div>
           )}
         </div>
