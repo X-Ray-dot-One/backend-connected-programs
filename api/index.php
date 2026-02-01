@@ -1084,9 +1084,9 @@ elseif ($action === 'create-post') {
     // Handle image upload
     $imagePath = null;
     if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-        $maxSize = 5 * 1024 * 1024; // 5MB
+        $maxSize = 20 * 1024 * 1024; // 20MB
         if ($_FILES['image']['size'] > $maxSize) {
-            echo json_encode(['success' => false, 'error' => 'Image must be less than 5MB']);
+            echo json_encode(['success' => false, 'error' => 'Image must be less than 20MB']);
             exit;
         }
 
