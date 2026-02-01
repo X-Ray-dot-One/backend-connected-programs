@@ -245,6 +245,30 @@ export async function transferToShadowWallet(
 ): Promise<string> {
   const conn = getConnection();
 
+  // === PRIVACY CASH INTEGRATION (mainnet only — uncomment when ready) ===
+  // import { deposit, withdraw } from 'privacycash';
+  //
+  // // Step 1: Deposit from public wallet into Privacy Cash pool
+  // const depositTx = await deposit(
+  //   conn,
+  //   fromPublicKey,
+  //   BigInt(lamports),
+  //   signTransaction
+  // );
+  // console.log('[Privacy Cash] Deposit tx:', depositTx);
+  //
+  // // Step 2: Withdraw from Privacy Cash pool to shadow wallet (breaks the on-chain link)
+  // const withdrawTx = await withdraw(
+  //   conn,
+  //   toPublicKey,
+  //   BigInt(lamports)
+  // );
+  // console.log('[Privacy Cash] Withdraw tx:', withdrawTx);
+  //
+  // return withdrawTx;
+  // === END PRIVACY CASH ===
+
+  // Direct transfer (devnet — no Privacy Cash available)
   const transaction = new Transaction().add(
     SystemProgram.transfer({
       fromPubkey: fromPublicKey,

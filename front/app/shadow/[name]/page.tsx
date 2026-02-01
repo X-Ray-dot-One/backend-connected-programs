@@ -13,6 +13,7 @@ import {
   Zap,
   ExternalLink,
   MessageSquare,
+  Crown,
 } from "lucide-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getImageUrl } from "@/lib/utils";
@@ -323,7 +324,10 @@ function ShadowProfileContent() {
 
         {/* Name & Handle */}
         <div className="mt-3">
-          <h1 className={`text-xl font-bold ${isPremium ? "text-pink-500" : "text-primary"}`}>{name}</h1>
+          <h1 className={`text-xl font-bold flex items-center gap-2 ${isPremium ? "text-pink-500" : "text-primary"}`}>
+            {isPremium && <Crown className="w-5 h-5" />}
+            {name}
+          </h1>
           {walletPubkey && isOwnWallet && (
             <p className="text-sm text-muted-foreground font-mono">
               {walletPubkey.slice(0, 8)}...{walletPubkey.slice(-8)}
