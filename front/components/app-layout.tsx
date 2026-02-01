@@ -90,10 +90,8 @@ export function AppLayout({ children }: AppLayoutProps) {
       }
     };
     document.addEventListener("touchstart", handleTouch);
-    document.addEventListener("mousedown", handleTouch);
     return () => {
       document.removeEventListener("touchstart", handleTouch);
-      document.removeEventListener("mousedown", handleTouch);
     };
   }, [isIdentityOpen]);
 
