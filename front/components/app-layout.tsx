@@ -360,7 +360,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         {/* Mobile Mode Toggle - fixed bottom-right (hidden on messages page) */}
         {pathname !== "/messages" && (
         <button
-          data-onboarding="shadow-toggle"
+          data-onboarding="shadow-toggle-mobile"
           onClick={toggleMode}
           className={`md:hidden fixed bottom-[5.5rem] right-4 z-50 rounded-full flex items-center gap-1.5 shadow-lg transition-colors px-3 py-2.5 ${
             isShadowMode

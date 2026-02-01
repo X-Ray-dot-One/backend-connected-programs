@@ -70,6 +70,7 @@ export function ProfileSetupModal({
   // Shadow tutorial sub-steps
   const [shadowStep, setShadowStep] = useState<"toggle" | "feed" | "intro-post" | "post">("toggle");
   const [toggleRect, setToggleRect] = useState<DOMRect | null>(null);
+  const [isMobileToggle, setIsMobileToggle] = useState(false);
   const [feedRect, setFeedRect] = useState<DOMRect | null>(null);
   const [feedExplainStep, setFeedExplainStep] = useState(0);
 
@@ -94,10 +95,16 @@ export function ProfileSetupModal({
   // Get toggle position when entering step 5
   useEffect(() => {
     if (step === 5 && shadowStep === "toggle") {
-      const el = document.querySelector('[data-onboarding="shadow-toggle"]');
+      const getToggle = () => {
+        const mobile = window.innerWidth < 768;
+        setIsMobileToggle(mobile);
+        const sel = mobile ? '[data-onboarding="shadow-toggle-mobile"]' : '[data-onboarding="shadow-toggle-desktop"]';
+        return document.querySelector(sel);
+      };
+      const el = getToggle();
       if (el) setToggleRect(el.getBoundingClientRect());
       const onResize = () => {
-        const el2 = document.querySelector('[data-onboarding="shadow-toggle"]');
+        const el2 = getToggle();
         if (el2) setToggleRect(el2.getBoundingClientRect());
       };
       window.addEventListener("resize", onResize);
@@ -279,25 +286,41 @@ export function ProfileSetupModal({
 
         {/* Clone toggle at exact position of the real one */}
         {toggleRect && (
-          <button
-            onClick={toggleMode}
-            className="fixed z-[9999] flex items-center gap-2 p-1 rounded-full bg-muted/50 transition-colors ring-4 ring-primary ring-offset-4 ring-offset-black animate-pulse"
-            style={{ top: toggleRect.top, left: toggleRect.left }}
-          >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${!isShadowMode ? "bg-amber-500 text-white" : "text-muted-foreground"}`}>
-              <Eye className="w-4 h-4" />
-            </div>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isShadowMode ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
-              <EyeOff className="w-4 h-4" />
-            </div>
-          </button>
+          isMobileToggle ? (
+            <button
+              onClick={toggleMode}
+              className={`fixed z-[9999] rounded-full flex items-center gap-1.5 shadow-lg px-3 py-2.5 ring-4 ring-primary ring-offset-4 ring-offset-black animate-pulse ${
+                isShadowMode ? "bg-card text-primary border border-primary/40" : "bg-card text-amber-500 border border-amber-500/40"
+              }`}
+              style={{ top: toggleRect.top, left: toggleRect.left }}
+            >
+              {isShadowMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span className="text-xs font-semibold">{isShadowMode ? "shadow" : "public"}</span>
+            </button>
+          ) : (
+            <button
+              onClick={toggleMode}
+              className="fixed z-[9999] flex items-center gap-2 p-1 rounded-full bg-muted/50 transition-colors ring-4 ring-primary ring-offset-4 ring-offset-black animate-pulse"
+              style={{ top: toggleRect.top, left: toggleRect.left }}
+            >
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${!isShadowMode ? "bg-amber-500 text-white" : "text-muted-foreground"}`}>
+                <Eye className="w-4 h-4" />
+              </div>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isShadowMode ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                <EyeOff className="w-4 h-4" />
+              </div>
+            </button>
+          )
         )}
 
-        {/* Tooltip next to the toggle */}
+        {/* Tooltip - above toggle on mobile, below on desktop */}
         {toggleRect && (
           <div
             className="fixed z-[9999] w-64 pointer-events-none"
-            style={{ top: toggleRect.bottom + 16, left: Math.min(toggleRect.left, window.innerWidth - 280) }}
+            style={isMobileToggle
+              ? { bottom: window.innerHeight - toggleRect.top + 16, right: 16 }
+              : { top: toggleRect.bottom + 16, left: Math.min(toggleRect.left, window.innerWidth - 280) }
+            }
           >
             <div className="bg-background border border-primary/30 rounded-xl p-4 shadow-2xl">
               <div className="flex items-center gap-2 mb-2">
@@ -308,7 +331,7 @@ export function ProfileSetupModal({
                 Tap the toggle to switch to shadow mode. Post anonymously with SOL bids.
               </p>
               <div className="flex items-center gap-2 text-primary animate-bounce">
-                <ArrowRight className="w-4 h-4 rotate-[-90deg]" />
+                <ArrowRight className={`w-4 h-4 ${isMobileToggle ? "rotate-90" : "rotate-[-90deg]"}`} />
                 <span className="text-xs font-medium">Tap the toggle</span>
               </div>
             </div>
