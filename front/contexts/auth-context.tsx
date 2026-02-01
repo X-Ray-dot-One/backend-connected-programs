@@ -67,6 +67,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await Promise.race([api.getMe(), timeoutPromise]) as Awaited<ReturnType<typeof api.getMe>>;
       if (response.success && response.user) {
         setUser(response.user);
+        // Re-show profile setup if user never completed registration
+        if (!response.user.username && !response.user.profile_picture) {
+          setIsNewUser(true);
+          setShowProfileSetup(true);
+        }
       }
     } catch (error) {
       // Not logged in or API error, that's fine
