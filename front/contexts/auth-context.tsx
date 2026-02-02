@@ -102,6 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     // Clear any existing shadow session when switching wallets
     clearShadowSession();
+    // Reset to public mode
+    localStorage.setItem("shadowMode", "false");
     try {
       const response = await api.walletAuth(walletAddress);
       if (response.success && response.user) {
@@ -132,6 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.logout();
       // Clear shadow session on logout
       clearShadowSession();
+      // Reset to public mode
+      localStorage.setItem("shadowMode", "false");
       setUser(null);
     } catch (error) {
       console.error("Logout failed:", error);
