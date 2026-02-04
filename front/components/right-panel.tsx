@@ -303,7 +303,7 @@ export function RightPanel() {
               >
                 <a href={`/user/${suggestedUser.username}`} className="flex items-center gap-3 min-w-0 flex-1">
                   <img
-                    src={suggestedUser.profile_picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${suggestedUser.username}`}
+                    src={getImageUrl(suggestedUser.profile_picture, `https://api.dicebear.com/7.x/avataaars/svg?seed=${suggestedUser.username}`)}
                     alt={suggestedUser.username}
                     className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                   />
@@ -328,12 +328,14 @@ export function RightPanel() {
             ))
           )}
         </div>
-        <a
-          href={isShadowMode ? "/marketplace" : "/explore/users"}
-          className="block px-4 py-3 text-sm text-primary hover:bg-muted transition-colors border-t border-border"
-        >
-          {isShadowMode ? "view_all_domains" : "show more"}
-        </a>
+{isShadowMode && (
+          <a
+            href="/marketplace"
+            className="block px-4 py-3 text-sm text-primary hover:bg-muted transition-colors border-t border-border"
+          >
+            view_all_domains
+          </a>
+        )}
       </div>
 
       {/* Footer */}
